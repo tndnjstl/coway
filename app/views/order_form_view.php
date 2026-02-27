@@ -65,9 +65,20 @@
 					</div>
 				</div>
 
-				<!-- ③ 합계 -->
+				<!-- ③ 메모 -->
 				<div class="d-flex align-items-center mb-2">
 					<span class="badge bg-primary me-2 fs-6">3</span>
+					<h5 class="mb-0 fw-bold">메모</h5>
+				</div>
+				<div class="card mb-4">
+					<div class="card-body">
+						<textarea id="order_memo" class="form-control" rows="3" placeholder="특이사항, 요청사항 등 자유롭게 입력하세요."></textarea>
+					</div>
+				</div>
+
+				<!-- ④ 합계 -->
+				<div class="d-flex align-items-center mb-2">
+					<span class="badge bg-primary me-2 fs-6">4</span>
 					<h5 class="mb-0 fw-bold">합계</h5>
 				</div>
 				<div id="order_summary">
@@ -76,6 +87,13 @@
 							상품을 선택하면 합계가 표시됩니다.
 						</div>
 					</div>
+				</div>
+
+				<!-- 저장 버튼 -->
+				<div class="d-grid mt-4">
+					<button type="button" class="btn btn-success btn-lg" id="btn_save_order" onclick="save_order()">
+						<i class="fas fa-save me-2"></i>주문 등록
+					</button>
 				</div>
 
 			</div>

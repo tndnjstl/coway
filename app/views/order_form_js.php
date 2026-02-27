@@ -431,6 +431,92 @@ $(document).on('change', '.promo-check', function() {
 });
 
 /* =============================================================
+ * 주문 저장
+ * ============================================================= */
+function save_order() {
+	var customer_type  = $('input[name="customer_type"]:checked').val() || '';
+	var customer_name  = $('#customer_name').val().trim();
+	var customer_phone = $('#customer_phone').val().trim();
+	var memo           = $('#order_memo').val().trim();
+
+	if (!customer_type) { alert('고객구분을 선택해주세요.'); return; }
+	if (!customer_name) { alert('고객명을 입력해주세요.'); $('#customer_name').focus(); return; }
+	if (!customer_phone) { alert('휴대폰 번호를 입력해주세요.'); $('#customer_phone').focus(); return; }
+	if (Object.keys(selected_models).length === 0) { alert('상품을 1개 이상 선택해주세요.'); return; }
+
+	var items = [];
+	$.each(selected_models, function(uid, m) {
+		var p = get_model_pricing(m);
+		var item = {
+			model_uid:         m.uid,
+			model_name:        m.model_name,
+			model_no:          m.model_no,
+			model_color:       m.model_color,
+			category:          m.category,
+			payment_type:      m.payment_type,
+			visit_cycle:       m.payment_type === 'rent' ? Number(m.visit_cycle) : 0,
+			duty_year:         m.payment_type === 'rent' ? Number(m.duty_year)   : 0,
+			promo_a141:        m.promotions.A141 ? 1 : 0,
+			promo_a142:        m.promotions.A142 ? 1 : 0,
+			promo_a143:        m.promotions.A143 ? 1 : 0,
+			promo_a144:        m.promotions.A144 ? 1 : 0,
+			base_setup_price:  p.payment_type === 'rent' ? (p.base_setup  || 0) : 0,
+			base_rent_price:   p.payment_type === 'rent' ? (p.base_rent   || 0) : 0,
+			final_setup_price: p.payment_type === 'rent' ? (p.final_setup || 0) : 0,
+			final_rent_price:  p.payment_type === 'rent' ? (p.final_rent  || 0) : 0,
+			normal_price:      p.payment_type === 'buy'  ? p.normal_price        : 0,
+			total_pay:         p.total_pay || 0
+		};
+		items.push(item);
+	});
+
+	var $btn = $('#btn_save_order');
+	$btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>저장 중...');
+
+	$.ajax({
+		url: '/Order/saveOrder',
+		method: 'POST',
+		contentType: 'application/json',
+		dataType: 'json',
+		data: JSON.stringify({
+			customer_type:  customer_type,
+			customer_name:  customer_name,
+			customer_phone: customer_phone,
+			memo:           memo,
+			items:          items
+		}),
+		success: function(res) {
+			if (res.status === 'success') {
+				alert('주문이 등록되었습니다. (주문번호: ' + res.order_uid + ')');
+				// 폼 초기화
+				$('input[name="customer_type"][value="P"]').prop('checked', true);
+				$('#customer_name').val('');
+				$('#customer_phone').val('');
+				$('#order_memo').val('');
+				selected_models = {};
+				all_products    = [];
+				active_category = '';
+				$('#model_list').html(
+					'<div class="text-center text-muted py-5">' +
+					'<i class="fas fa-box-open fa-2x mb-2 d-block"></i>' +
+					'상단 [상품 추가] 버튼을 눌러 상품을 추가해주세요.' +
+					'</div>'
+				);
+				render_order_summary();
+			} else {
+				alert(res.message || '저장에 실패했습니다.');
+			}
+		},
+		error: function() {
+			alert('서버 오류가 발생했습니다. 다시 시도해주세요.');
+		},
+		complete: function() {
+			$btn.prop('disabled', false).html('<i class="fas fa-save me-2"></i>주문 등록');
+		}
+	});
+}
+
+/* =============================================================
  * 유틸
  * ============================================================= */
 function escape_html(str) {
