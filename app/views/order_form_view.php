@@ -23,6 +23,10 @@
 								<input type="radio" name="customer_type" value="B" class="selectgroup-input">
 								<span class="selectgroup-button">개인사업자</span>
 							</label>
+							<label class="selectgroup-item">
+								<input type="radio" name="customer_type" value="C" class="selectgroup-input">
+								<span class="selectgroup-button">법인사업자</span>
+							</label>
 						</div>
 					</div>
 
