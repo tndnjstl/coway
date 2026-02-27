@@ -12,53 +12,46 @@ class AuthController
 	{
 		global $db_local;
 
-		//로그인 된 상태면 바로 메인 페이지 이동
-		if(isset($_SESSION['is_login']) && $_SESSION['is_login'])
-		{
-			//접근 페이지가 있으면
-			if( $_SERVER['HTTP_REFERER'] != '' )
-			{
-				header('Location: ' . $_SERVER['HTTP_REFERER']);
-			}
-			//업으면 메인으로 이동
-			else
-			{
-				header('Location: /');
-			}
-		}
-		else
-		{
-			$member_id = $_REQUEST['member_id'];
-			$password = $_REQUEST['password'];
-
-			$sql = "
-				SELECT
-					*
-				FROM tndnjstl_member
-				WHERE 1=1
-					AND member_id = '{$member_id}'
-					AND password = '{$password}'
-			";
-
-			$result = $db_local->query($sql);
-
-			$row = $result->fetch_assoc();
-
-			//정보 없음
-			if (!$result || $result->num_rows === 0)
-			{
-				alert('아이디 또는 비밀번호를 확인해주세요.');
-				exit;
-			}
-
-			//세선 저장
-			$_SESSION['is_login'] = true;
-			$_SESSION['member_id'] = $member_id;
-			$_SESSION['info'] = $row;
-
-			//페이지 이동
+		// 이미 로그인 상태면 메인으로
+		if (isset($_SESSION['is_login']) && $_SESSION['is_login']) {
 			header('Location: /');
+			exit;
 		}
+
+		$member_id = trim($_POST['member_id'] ?? '');
+		$password  = trim($_POST['password']  ?? '');
+
+		if ($member_id === '' || $password === '') {
+			echo "<script>alert('아이디와 비밀번호를 입력해주세요.');history.back();</script>";
+			exit;
+		}
+
+		$member_id_esc = $db_local->real_escape_string($member_id);
+		$password_esc  = $db_local->real_escape_string($password);
+
+		$sql = "
+			SELECT *
+			FROM tndnjstl_member
+			WHERE member_id = '{$member_id_esc}'
+			  AND password  = '{$password_esc}'
+			LIMIT 1
+		";
+
+		$result = $db_local->query($sql);
+
+		if (!$result || $result->num_rows === 0) {
+			echo "<script>alert('아이디 또는 비밀번호를 확인해주세요.');history.back();</script>";
+			exit;
+		}
+
+		$row = $result->fetch_assoc();
+
+		$_SESSION['is_login']  = true;
+		$_SESSION['member_id'] = $member_id;
+		$_SESSION['info']      = $row;
+
+		header('Location: /');
+		exit;
 	}
 
 	public function logout()
@@ -86,7 +79,8 @@ class AuthController
 
 		session_destroy();
 
-		header('Location: /');
+		header('Location: /Auth/login');
+		exit;
 	}
 
 }
