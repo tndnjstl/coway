@@ -3,6 +3,7 @@
 
 <?php
 $customer_type_map = ['P' => '개인', 'B' => '개인사업자', 'C' => '법인사업자'];
+$customer_type_badge = ['P' => 'bg-secondary', 'B' => 'bg-info', 'C' => 'bg-warning text-dark'];
 ?>
 
 <div class="wrapper">
@@ -21,53 +22,40 @@ $customer_type_map = ['P' => '개인', 'B' => '개인사업자', 'C' => '법인�
 					</a>
 				</div>
 
-				<div class="card">
-					<div class="card-body p-0">
-						<?php if (empty($orders)): ?>
-							<div class="text-center text-muted py-5">
-								<i class="fas fa-clipboard-list fa-2x mb-2 d-block"></i>
-								등록된 주문이 없습니다.
-							</div>
-						<?php else: ?>
-						<div class="table-responsive">
-							<table class="table table-hover mb-0">
-								<thead class="table-light">
-									<tr>
-										<th class="text-center" style="width:60px;">번호</th>
-										<th style="width:90px;">고객구분</th>
-										<th>고객명</th>
-										<th>전화번호</th>
-										<th class="text-center" style="width:70px;">상품수</th>
-										<th class="text-end">총납부예상액</th>
-										<th style="width:90px;">담당자</th>
-										<th style="width:140px;">등록일시</th>
-									</tr>
-								</thead>
-								<tbody>
-									<?php foreach ($orders as $order): ?>
-									<tr class="order-row" data-order-uid="<?= $order['uid'] ?>" style="cursor:pointer;">
-										<td class="text-center text-muted small"><?= $order['uid'] ?></td>
-										<td>
-											<?php
-											$ct = $customer_type_map[$order['customer_type']] ?? $order['customer_type'];
-											$badge = $order['customer_type'] === 'P' ? 'bg-secondary' : ($order['customer_type'] === 'B' ? 'bg-info' : 'bg-warning text-dark');
-											?>
-											<span class="badge <?= $badge ?>"><?= htmlspecialchars($ct) ?></span>
-										</td>
-										<td class="fw-bold"><?= htmlspecialchars($order['customer_name']) ?></td>
-										<td><?= htmlspecialchars($order['customer_phone']) ?></td>
-										<td class="text-center"><?= (int)$order['item_count'] ?>개</td>
-										<td class="text-end fw-bold text-primary"><?= number_format((int)$order['total_pay']) ?>원</td>
-										<td class="text-muted small"><?= htmlspecialchars($order['member_id']) ?></td>
-										<td class="text-muted small"><?= date('Y-m-d H:i', strtotime($order['register_date'])) ?></td>
-									</tr>
-									<?php endforeach; ?>
-								</tbody>
-							</table>
-						</div>
-						<?php endif; ?>
+				<?php if (empty($orders)): ?>
+					<div class="text-center text-muted py-5">
+						<i class="fas fa-clipboard-list fa-2x mb-2 d-block"></i>
+						등록된 주문이 없습니다.
 					</div>
-				</div>
+				<?php else: ?>
+					<?php foreach ($orders as $order):
+						$ct    = $customer_type_map[$order['customer_type']]  ?? $order['customer_type'];
+						$badge = $customer_type_badge[$order['customer_type']] ?? 'bg-secondary';
+						$date  = date('m/d H:i', strtotime($order['register_date']));
+					?>
+					<div class="card mb-2 order-row" data-order-uid="<?= $order['uid'] ?>" style="cursor:pointer;">
+						<div class="card-body p-3">
+							<div class="d-flex align-items-start justify-content-between">
+								<div class="flex-grow-1 min-w-0">
+									<div class="d-flex align-items-center gap-2 mb-1">
+										<span class="fw-bold"><?= htmlspecialchars($order['customer_name']) ?></span>
+										<span class="badge <?= $badge ?> small"><?= $ct ?></span>
+									</div>
+									<div class="text-muted small mb-1"><?= htmlspecialchars($order['customer_phone']) ?></div>
+									<div class="d-flex align-items-center gap-3">
+										<span class="small text-muted">상품 <?= (int)$order['item_count'] ?>개</span>
+										<span class="small fw-bold text-primary"><?= number_format((int)$order['total_pay']) ?>원</span>
+									</div>
+								</div>
+								<div class="text-end flex-shrink-0 ms-2">
+									<div class="text-muted small mb-2"><?= $date ?></div>
+									<i class="fas fa-chevron-right text-muted small"></i>
+								</div>
+							</div>
+						</div>
+					</div>
+					<?php endforeach; ?>
+				<?php endif; ?>
 
 			</div>
 		</div>
@@ -76,14 +64,14 @@ $customer_type_map = ['P' => '개인', 'B' => '개인사업자', 'C' => '법인�
 </div>
 
 <!-- 주문 상세 모달 -->
-<div class="modal fade" id="modal-order-detail" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-md-down">
+<div class="modal fade" id="modal-order-detail" tabindex="-1" data-bs-keyboard="false">
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down" style="max-width:560px;">
 		<div class="modal-content">
 			<div class="modal-header py-2">
 				<h6 class="modal-title fw-bold">주문 상세</h6>
 				<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
 			</div>
-			<div class="modal-body" id="order-detail-body">
+			<div class="modal-body p-3" id="order-detail-body">
 				<div class="text-center py-4">
 					<div class="spinner-border spinner-border-sm me-2" role="status"></div>
 					불러오는 중...
@@ -99,9 +87,7 @@ $customer_type_map = ['P' => '개인', 'B' => '개인사업자', 'C' => '법인�
 <?php include APP_PATH . '/views/layouts/script.php';?>
 <script>
 var order_detail_modal = new bootstrap.Modal(document.getElementById('modal-order-detail'));
-
-var customer_type_map = { P: '개인', B: '개인사업자', C: '법인사업자' };
-var payment_type_map  = { rent: '렌탈', buy: '일시불' };
+var customer_type_map  = { P: '개인', B: '개인사업자', C: '법인사업자' };
 
 $(document).on('click', '.order-row', function() {
 	var order_uid = $(this).data('order-uid');
@@ -129,77 +115,79 @@ $(document).on('click', '.order-row', function() {
 	});
 });
 
-function number_fmt(n) { return Number(n).toLocaleString('ko-KR'); }
+function fmt(n) { return Number(n).toLocaleString('ko-KR'); }
+
+function esc(str) {
+	return String(str || '')
+		.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 function render_order_detail(order, items) {
-	var ct = customer_type_map[order.customer_type] || order.customer_type;
+	var ct   = customer_type_map[order.customer_type] || order.customer_type;
 	var html = '';
 
-	// 고객 정보
-	html += '<div class="mb-3 p-3 rounded" style="background:#f8f9fa;">';
-	html += '  <div class="row g-2">';
-	html += '    <div class="col-6"><span class="text-muted small">주문번호</span><div class="fw-bold">#' + order.uid + '</div></div>';
-	html += '    <div class="col-6"><span class="text-muted small">고객구분</span><div class="fw-bold">' + ct + '</div></div>';
-	html += '    <div class="col-6"><span class="text-muted small">고객명</span><div class="fw-bold">' + esc(order.customer_name) + '</div></div>';
-	html += '    <div class="col-6"><span class="text-muted small">전화번호</span><div class="fw-bold">' + esc(order.customer_phone) + '</div></div>';
-	html += '    <div class="col-6"><span class="text-muted small">담당자</span><div>' + esc(order.member_id) + '</div></div>';
-	html += '    <div class="col-6"><span class="text-muted small">등록일시</span><div>' + order.register_date + '</div></div>';
+	/* 고객 정보 */
+	html += '<div class="rounded p-3 mb-3" style="background:#f8f9fa;">';
+	html += '  <div class="row g-2 small">';
+	html += '    <div class="col-6"><div class="text-muted">주문번호</div><div class="fw-bold">#' + order.uid + '</div></div>';
+	html += '    <div class="col-6"><div class="text-muted">고객구분</div><div class="fw-bold">' + ct + '</div></div>';
+	html += '    <div class="col-6"><div class="text-muted">고객명</div><div class="fw-bold">' + esc(order.customer_name) + '</div></div>';
+	html += '    <div class="col-6"><div class="text-muted">전화번호</div><div class="fw-bold">' + esc(order.customer_phone) + '</div></div>';
+	html += '    <div class="col-6"><div class="text-muted">담당자</div><div>' + esc(order.member_id) + '</div></div>';
+	html += '    <div class="col-6"><div class="text-muted">등록일시</div><div>' + order.register_date + '</div></div>';
 	if (order.memo) {
-		html += '  <div class="col-12"><span class="text-muted small">메모</span><div>' + esc(order.memo) + '</div></div>';
+		html += '  <div class="col-12"><div class="text-muted">메모</div><div>' + esc(order.memo) + '</div></div>';
 	}
 	html += '  </div>';
 	html += '</div>';
 
-	// 상품 목록
+	/* 상품 목록 */
 	$.each(items, function(_, item) {
 		var is_rent = item.payment_type === 'rent';
-		html += '<div class="card mb-2">';
+		html += '<div class="card mb-2 border">';
 		html += '  <div class="card-body p-3">';
-		html += '    <div class="d-flex justify-content-between align-items-start mb-2">';
-		html += '      <div>';
-		html += '        <div class="fw-bold">' + esc(item.model_name) + '</div>';
-		html += '        <div class="text-muted small">' + esc(item.model_no) + ' · ' + esc(item.model_color) + '</div>';
-		html += '        <span class="badge bg-light text-secondary border me-1 mt-1">' + esc(item.category) + '</span>';
-		html += '        <span class="badge ' + (is_rent ? 'bg-primary' : 'bg-success') + ' mt-1">' + (is_rent ? '렌탈' : '일시불') + '</span>';
-		html += '      </div>';
-		html += '      <div class="text-end">';
-		html += '        <div class="fw-bold text-primary">' + number_fmt(item.total_pay) + '원</div>';
-		html += '        <div class="text-muted small">총 납부예상</div>';
+
+		/* 상품 헤더 */
+		html += '  <div class="d-flex justify-content-between align-items-start mb-2">';
+		html += '    <div class="flex-grow-1 min-w-0">';
+		html += '      <div class="fw-bold small text-truncate">' + esc(item.model_name) + '</div>';
+		html += '      <div class="text-muted" style="font-size:11px;">' + esc(item.model_no) + ' · ' + esc(item.model_color) + '</div>';
+		html += '      <div class="mt-1">';
+		html += '        <span class="badge bg-light text-secondary border me-1" style="font-size:11px;">' + esc(item.category) + '</span>';
+		html += '        <span class="badge ' + (is_rent ? 'bg-primary' : 'bg-success') + '" style="font-size:11px;">' + (is_rent ? '렌탈' : '일시불') + '</span>';
 		html += '      </div>';
 		html += '    </div>';
+		html += '    <div class="text-end ms-2 flex-shrink-0">';
+		html += '      <div class="fw-bold text-primary small">' + fmt(item.total_pay) + '원</div>';
+		html += '      <div class="text-muted" style="font-size:11px;">총납부예상</div>';
+		html += '    </div>';
+		html += '  </div>';
 
+		/* 옵션 상세 */
+		html += '  <div class="rounded p-2" style="background:#eef2ff;font-size:12px;">';
 		if (is_rent) {
-			html += '    <div class="small rounded p-2" style="background:#eef2ff;">';
-			html += '      <div class="d-flex justify-content-between mb-1"><span class="text-muted">방문주기 / 의무기간</span><span>' + item.visit_cycle + '개월 / ' + item.duty_year + '년</span></div>';
-			html += '      <div class="d-flex justify-content-between mb-1"><span class="text-muted">등록비 / 월렌탈료</span><span>' + number_fmt(item.base_setup_price) + '원 / ' + number_fmt(item.base_rent_price) + '원</span></div>';
-			html += '      <div class="d-flex justify-content-between mb-1"><span class="text-muted">최종 등록비 / 월렌탈료</span><span class="fw-bold">' + number_fmt(item.final_setup_price) + '원 / ' + number_fmt(item.final_rent_price) + '원</span></div>';
-
+			html += '    <div class="d-flex justify-content-between mb-1"><span class="text-muted">방문주기 / 의무기간</span><span>' + item.visit_cycle + '개월 / ' + item.duty_year + '년</span></div>';
+			html += '    <div class="d-flex justify-content-between mb-1"><span class="text-muted">최종 등록비</span><span class="fw-bold">' + fmt(item.final_setup_price) + '원</span></div>';
+			html += '    <div class="d-flex justify-content-between mb-1"><span class="text-muted">최종 월렌탈료</span><span class="fw-bold">' + fmt(item.final_rent_price) + '원</span></div>';
 			var promos = [];
 			if (item.promo_a141 == 1) promos.push('월 -6,000원');
-			if (item.promo_a142 == 1) promos.push('렌탈 10% 할인');
+			if (item.promo_a142 == 1) promos.push('렌탈 10%↓');
 			if (item.promo_a143 == 1) promos.push('설치비 면제');
 			if (item.promo_a144 == 1) promos.push('3개월 무료');
 			if (promos.length > 0) {
-				html += '      <div class="d-flex justify-content-between"><span class="text-muted">프로모션</span><span class="text-danger">' + promos.join(', ') + '</span></div>';
+				html += '    <div class="d-flex justify-content-between"><span class="text-muted">프로모션</span><span class="text-danger">' + promos.join(' · ') + '</span></div>';
 			}
-			html += '    </div>';
 		} else {
-			html += '    <div class="small rounded p-2" style="background:#eef2ff;">';
-			html += '      <div class="d-flex justify-content-between"><span class="text-muted">일시불 금액</span><span class="fw-bold">' + number_fmt(item.normal_price) + '원</span></div>';
-			html += '    </div>';
+			html += '    <div class="d-flex justify-content-between"><span class="text-muted">일시불 금액</span><span class="fw-bold">' + fmt(item.normal_price) + '원</span></div>';
 		}
+		html += '  </div>';
 
 		html += '  </div>';
 		html += '</div>';
 	});
 
 	$('#order-detail-body').html(html);
-}
-
-function esc(str) {
-	return String(str || '')
-		.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 </script>
 <?php include APP_PATH . '/views/layouts/tail.php';?>
