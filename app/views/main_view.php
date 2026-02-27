@@ -64,9 +64,7 @@
 	<?php include APP_PATH . '/views/layouts/script.php';?>
 
 	<script>
-		function add_order()
-		{
-			location.href = '/Order/addOrder';
-		}
+		function add_order()  { location.href = '/Order/addOrder'; }
+		function order_list() { location.href = '/Order/orderList'; }
 	</script>
 <?php include APP_PATH . '/views/layouts/tail.php';?>
