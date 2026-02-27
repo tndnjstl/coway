@@ -123,10 +123,7 @@ function render_modal_list(list) {
 		if (!is_selected) {
 			$el.find('.btn-select-model').on('click', function() {
 				append_selected_model(item);
-				$(this)
-					.removeClass('btn-outline-primary btn-select-model')
-					.addClass('btn-success disabled')
-					.html('<i class="fas fa-check me-1"></i>선택됨');
+				product_modal.hide();
 			});
 		}
 
