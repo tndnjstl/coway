@@ -69,19 +69,41 @@ function date_name_kr()
 
 function login_check($return=false)
 {
-	//로그인 실패시
-	if(!isset($_SESSION['is_login']) || !$_SESSION['is_login'])
-	{
-		if($return)
-		{
-			return false;
-		}
-
-		alert('로그인 후 이용해주세요.');
-		exit;
+	// 세션이 있으면 통과
+	if (isset($_SESSION['is_login']) && $_SESSION['is_login']) {
+		return true;
 	}
 
-	return true;
+	// 세션 없으면 remember-me 쿠키로 자동 복원 시도
+	if (!empty($_COOKIE['coway_remember'])) {
+		global $db_local;
+		$parts = explode('|', $_COOKIE['coway_remember'], 2);
+		if (count($parts) === 2) {
+			[$cookie_id, $cookie_token] = $parts;
+			$esc = $db_local->real_escape_string($cookie_id);
+			$r   = $db_local->query("SELECT * FROM tndnjstl_member WHERE member_id = '{$esc}' LIMIT 1");
+			if ($r && $r->num_rows > 0) {
+				$row   = $r->fetch_assoc();
+				$valid = hash('sha256', $row['member_id'] . '|' . $row['password'] . '|' . COOKIE_SECRET);
+				if (hash_equals($valid, $cookie_token)) {
+					// 토큰 유효 → 세션 복원
+					$_SESSION['is_login']  = true;
+					$_SESSION['member_id'] = $row['member_id'];
+					$_SESSION['info']      = $row;
+					return true;
+				}
+			}
+		}
+		// 유효하지 않은 쿠키 삭제
+		setcookie('coway_remember', '', ['expires' => time() - 3600, 'path' => '/']);
+	}
+
+	if ($return) {
+		return false;
+	}
+
+	alert('로그인 후 이용해주세요.');
+	exit;
 }
 
 /**

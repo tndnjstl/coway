@@ -63,6 +63,7 @@ spl_autoload_register(function ($class) {
 });
 
 //공통파일
+require_once APP_PATH . '/helpers/config.php';
 require_once APP_PATH . '/helpers/common_db.php';
 require_once APP_PATH . '/helpers/common_function.php';
 

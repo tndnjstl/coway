@@ -34,16 +34,26 @@
 			<div class="login-form">
 				<div class="form-sub">
 					<div class="form-floating form-floating-custom mb-3">
-						<input id="member_id" name="member_id" type="text" class="form-control" placeholder="아이디" required />
+						<input id="member_id" name="member_id" type="text" class="form-control" placeholder="아이디" required autocomplete="username" />
 						<label for="member_id">아이디</label>
 					</div>
 					<div class="form-floating form-floating-custom mb-3">
-						<input id="password" name="password" type="password" class="form-control" placeholder="비밀번호" required />
+						<input id="password" name="password" type="password" class="form-control" placeholder="비밀번호" required autocomplete="current-password" />
 						<label for="password">비밀번호</label>
 						<div class="show-password">
 							<i class="icon-eye"></i>
 						</div>
 					</div>
+				</div>
+				<div class="d-flex justify-content-between align-items-center px-2 mb-3" style="font-size:13px;">
+					<label class="d-flex align-items-center gap-1 text-muted" style="cursor:pointer;">
+						<input type="checkbox" name="save_id" id="save_id" value="1">
+						아이디 저장
+					</label>
+					<label class="d-flex align-items-center gap-1 text-muted" style="cursor:pointer;">
+						<input type="checkbox" name="remember_me" id="remember_me" value="1">
+						로그인 유지 (30일)
+					</label>
 				</div>
 				<div class="form-action mb-3">
 					<button type="submit" class="btn btn-primary w-100 btn-login">로그인</button>
@@ -55,6 +65,24 @@
 	</div>
 </div>
 
+<script>
+// 아이디 저장 쿠키 읽어서 pre-fill
+(function() {
+    function getCookie(name) {
+        var match = document.cookie.match(new RegExp("(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+\^])/g, "\\$1") + "=([^;]*)"));
+        return match ? decodeURIComponent(match[1]) : "";
+    }
+    var savedId = getCookie("coway_saved_id");
+    var hasRemember = getCookie("coway_remember") !== "";
+    if (savedId) {
+        document.getElementById("member_id").value = savedId;
+        document.getElementById("save_id").checked = true;
+    }
+    if (hasRemember) {
+        document.getElementById("remember_me").checked = true;
+    }
+})();
+</script>
 <?php include APP_PATH . '/views/layouts/script.php';?>
 </body>
 </html>
