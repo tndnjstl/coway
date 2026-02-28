@@ -106,6 +106,45 @@ function login_check($return=false)
 	exit;
 }
 
+// ──────────────────────────────────────────
+// 권한 헬퍼
+// ──────────────────────────────────────────
+
+/** 현재 세션의 role 반환 (없으면 'staff') */
+function get_role(): string
+{
+	return $_SESSION['info']['role'] ?? 'staff';
+}
+
+/** manager 또는 admin이면 true */
+function is_manager(): bool
+{
+	return in_array(get_role(), ['manager', 'admin'], true);
+}
+
+/** admin이면 true */
+function is_admin_role(): bool
+{
+	return get_role() === 'admin';
+}
+
+/**
+ * 권한 체크. 부족하면 alert + 리다이렉트
+ * $required_role : 'staff' | 'manager' | 'admin'
+ */
+function role_check(string $required_role = 'admin'): void
+{
+	$level = ['staff' => 1, 'manager' => 2, 'admin' => 3];
+	$user  = $level[get_role()] ?? 1;
+	$need  = $level[$required_role] ?? 3;
+
+	if ($user < $need)
+	{
+		echo "<script>alert('접근 권한이 없습니다.');history.back();</script>";
+		exit;
+	}
+}
+
 /**
  * 상품 크롤링
  *

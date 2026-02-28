@@ -38,7 +38,7 @@
 							</a>
 						</li>
 
-						<!-- 영업관리 -->
+						<!-- 영업관리 (전체 공통) -->
 						<li class="nav-section">
 							<span class="sidebar-mini-icon"><i class="fa fa-ellipsis-h"></i></span>
 							<h4 class="text-section">영업관리</h4>
@@ -55,6 +55,18 @@
 								<p>주문 현황</p>
 							</a>
 						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Customer/list') !== false) ? 'active' : '' ?>">
+							<a href="/Customer/list">
+								<i class="fas fa-users"></i>
+								<p>고객 관리</p>
+							</a>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Schedule/index') !== false) ? 'active' : '' ?>">
+							<a href="/Schedule/index">
+								<i class="fas fa-calendar-alt"></i>
+								<p>일정 관리</p>
+							</a>
+						</li>
 
 						<!-- 보고서 -->
 						<li class="nav-section">
@@ -67,6 +79,58 @@
 								<p>가망고객 보고서</p>
 							</a>
 						</li>
+
+						<?php if (isset($_SESSION['info']) && is_manager()): ?>
+						<!-- 영업운영관리 (manager, admin) -->
+						<li class="nav-section">
+							<span class="sidebar-mini-icon"><i class="fa fa-ellipsis-h"></i></span>
+							<h4 class="text-section">영업운영관리</h4>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Manage/orderList') !== false) ? 'active' : '' ?>">
+							<a href="/Manage/orderList">
+								<i class="fas fa-list-alt"></i>
+								<p>팀 주문 현황</p>
+							</a>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Manage/performance') !== false) ? 'active' : '' ?>">
+							<a href="/Manage/performance">
+								<i class="fas fa-chart-bar"></i>
+								<p>영업자 실적</p>
+							</a>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Manage/approval') !== false) ? 'active' : '' ?>">
+							<a href="/Manage/approval">
+								<i class="fas fa-check-circle"></i>
+								<p>주문 승인 관리</p>
+							</a>
+						</li>
+						<?php endif; ?>
+
+						<?php if (isset($_SESSION['info']) && is_admin_role()): ?>
+						<!-- 관리기능 (admin) -->
+						<li class="nav-section">
+							<span class="sidebar-mini-icon"><i class="fa fa-ellipsis-h"></i></span>
+							<h4 class="text-section">관리기능</h4>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Admin/memberList') !== false) ? 'active' : '' ?>">
+							<a href="/Admin/memberList">
+								<i class="fas fa-user-cog"></i>
+								<p>사용자 관리</p>
+							</a>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Admin/productList') !== false) ? 'active' : '' ?>">
+							<a href="/Admin/productList">
+								<i class="fas fa-box"></i>
+								<p>제품 관리</p>
+							</a>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Admin/codeList') !== false) ? 'active' : '' ?>">
+							<a href="/Admin/codeList">
+								<i class="fas fa-code"></i>
+								<p>공통코드 관리</p>
+							</a>
+						</li>
+						<?php endif; ?>
 
 					</ul>
 				</div>
