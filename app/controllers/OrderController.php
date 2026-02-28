@@ -1,6 +1,20 @@
 <?php
 class OrderController
 {
+	// 현재 세션이 관리자인지 확인
+	private function is_admin(): bool
+	{
+		return !empty($_SESSION['info']['is_admin']) && (int)$_SESSION['info']['is_admin'] === 1;
+	}
+
+	// 관리자면 '' 반환, 일반 계정이면 member_id WHERE 조건 반환
+	private function member_filter(string $table_alias = 'o'): string
+	{
+		if ($this->is_admin()) return '';
+		global $db_local;
+		$mid = $db_local->real_escape_string($_SESSION['member_id'] ?? '');
+		return "{$table_alias}.member_id = '{$mid}'";
+	}
 	//주문접수 폼
 	public function addOrder(): void
 	{
@@ -21,6 +35,9 @@ class OrderController
 		$date_to       = trim($_GET['date_to']     ?? '');
 
 		$conds = [];
+		// 계정 분리 필터
+		$mf = $this->member_filter();
+		if ($mf !== '') $conds[] = $mf;
 		if ($keyword !== '') {
 			$kw    = $db_local->real_escape_string($keyword);
 			$conds[] = "(o.customer_name LIKE '%{$kw}%' OR o.customer_phone LIKE '%{$kw}%')";
@@ -68,9 +85,10 @@ class OrderController
 			$orders[] = $row;
 		}
 
-		// 상태별 전체 건수 (필터 미적용 기준)
+		// 상태별 건수 (계정 기준)
 		$status_counts = ['prospect' => 0, 'contracted' => 0, 'installed' => 0];
-		$cr = $db_local->query("SELECT status, COUNT(*) AS cnt FROM tndnjstl_order GROUP BY status");
+		$sc_where = ($mf !== '') ? "WHERE {$mf}" : '';
+		$cr = $db_local->query("SELECT status, COUNT(*) AS cnt FROM tndnjstl_order {$sc_where} GROUP BY status");
 		if ($cr) {
 			while ($row = $cr->fetch_assoc()) {
 				if (isset($status_counts[$row['status']])) {
@@ -341,6 +359,8 @@ class OrderController
 		$period_label     = $period_label_map[$period] ?? ($date_from . ' ~ ' . $date_to);
 
 		// 전체 현재 가망고객 목록
+		$report_mf  = $this->member_filter();
+		$report_add = ($report_mf !== '') ? "AND {$report_mf}" : '';
 		$sql = "
 			SELECT
 				o.uid,
@@ -354,7 +374,7 @@ class OrderController
 				SUM(oi.total_pay) AS total_pay
 			FROM tndnjstl_order AS o
 			LEFT JOIN tndnjstl_order_item AS oi ON oi.order_uid = o.uid
-			WHERE o.status = 'prospect'
+			WHERE o.status = 'prospect' {$report_add}
 			GROUP BY o.uid
 			ORDER BY o.register_date DESC
 		";
@@ -434,6 +454,8 @@ class OrderController
 			$date_to    = trim($json_body['date_to']   ?? date('Y-m-d'));
 
 			// 가망고객 목록 조회
+			$email_mf  = $this->member_filter();
+			$email_add = ($email_mf !== '') ? "AND {$email_mf}" : '';
 			$sql = "
 				SELECT
 					o.uid,
@@ -446,7 +468,7 @@ class OrderController
 					SUM(oi.total_pay) AS total_pay
 				FROM tndnjstl_order AS o
 				LEFT JOIN tndnjstl_order_item AS oi ON oi.order_uid = o.uid
-				WHERE o.status = 'prospect'
+				WHERE o.status = 'prospect' {$email_add}
 				GROUP BY o.uid
 				ORDER BY o.register_date DESC
 			";
