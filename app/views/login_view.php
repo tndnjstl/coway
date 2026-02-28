@@ -22,13 +22,14 @@
 <body class="login bg-primary">
 
 <div class="wrapper wrapper-login">
-	<div class="container container-login animated fadeIn">
+	<div class="d-flex flex-column align-items-center w-100">
 
-		<div class="text-center mb-4">
-			<span class="fw-bold text-white" style="font-size:26px;letter-spacing:-0.5px;">COWAY</span>
+		<div class="text-center mb-3">
+			<span class="fw-bold text-white" style="font-size:28px;letter-spacing:-0.5px;">COWAY</span>
 			<div class="text-white-50 small mt-1">영업관리시스템</div>
 		</div>
 
+		<div class="container container-login animated fadeIn">
 		<form id="login_form" method="post" action="/Auth/loginProc">
 			<div class="login-form">
 				<div class="form-sub">
@@ -50,6 +51,7 @@
 			</div>
 		</form>
 
+		</div>
 	</div>
 </div>
 
