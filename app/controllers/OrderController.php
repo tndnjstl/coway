@@ -179,6 +179,217 @@ class OrderController
 		echo json_encode($data, JSON_UNESCAPED_UNICODE);
 	}
 
+	//가망고객 보고서 페이지
+	public function prospectReport(): void
+	{
+		global $db_local;
+		login_check();
+
+		// 이번 주 월요일 ~ 오늘
+		$week_start = date('Y-m-d', strtotime('monday this week'));
+		$today      = date('Y-m-d');
+
+		// 전체 현재 가망고객 목록
+		$sql = "
+			SELECT
+				o.uid,
+				o.customer_type,
+				o.customer_name,
+				o.customer_phone,
+				o.member_id,
+				o.memo,
+				o.register_date,
+				COUNT(oi.uid)     AS item_count,
+				SUM(oi.total_pay) AS total_pay
+			FROM tndnjstl_order AS o
+			LEFT JOIN tndnjstl_order_item AS oi ON oi.order_uid = o.uid
+			WHERE o.status = 'prospect'
+			GROUP BY o.uid
+			ORDER BY o.register_date DESC
+		";
+		$result   = $db_local->query($sql);
+		$prospects = [];
+		while ($row = $result->fetch_assoc()) {
+			$prospects[] = $row;
+		}
+
+		// 이번 주 신규 등록 건
+		$new_count = 0;
+		foreach ($prospects as $p) {
+			if (substr($p['register_date'], 0, 10) >= $week_start) {
+				$new_count++;
+			}
+		}
+
+		// 담당자별 집계
+		$by_member = [];
+		foreach ($prospects as $p) {
+			$m = $p['member_id'];
+			if (!isset($by_member[$m])) {
+				$by_member[$m] = ['count' => 0, 'total_pay' => 0];
+			}
+			$by_member[$m]['count']++;
+			$by_member[$m]['total_pay'] += (int)$p['total_pay'];
+		}
+
+		require_once HELPER_PATH . '/email_config.php';
+		include VIEW_PATH . '/prospect_report_view.php';
+	}
+
+	//가망고객 보고서 이메일 발송 (AJAX)
+	public function sendProspectReport(): void
+	{
+		global $db_local;
+
+		$status  = 'success';
+		$message = '';
+		$data    = [];
+
+		try {
+			if (!login_check(true)) {
+				throw new Exception('로그인 후 이용해주세요.');
+			}
+
+			require_once HELPER_PATH . '/email_config.php';
+
+			if (REPORT_RECIPIENT_EMAIL === 'director@example.com') {
+				throw new Exception('email_config.php에서 수신자 이메일을 설정해주세요.');
+			}
+
+			// 가망고객 목록 조회
+			$sql = "
+				SELECT
+					o.uid,
+					o.customer_type,
+					o.customer_name,
+					o.customer_phone,
+					o.member_id,
+					o.register_date,
+					COUNT(oi.uid)     AS item_count,
+					SUM(oi.total_pay) AS total_pay
+				FROM tndnjstl_order AS o
+				LEFT JOIN tndnjstl_order_item AS oi ON oi.order_uid = o.uid
+				WHERE o.status = 'prospect'
+				GROUP BY o.uid
+				ORDER BY o.register_date DESC
+			";
+			$result    = $db_local->query($sql);
+			$prospects = [];
+			while ($row = $result->fetch_assoc()) {
+				$prospects[] = $row;
+			}
+
+			$ct_map     = ['P' => '개인', 'B' => '개인사업자', 'C' => '법인사업자'];
+			$report_date = date('Y년 m월 d일');
+			$week_start  = date('Y-m-d', strtotime('monday this week'));
+			$total_count = count($prospects);
+			$total_pay   = array_sum(array_column($prospects, 'total_pay'));
+
+			// HTML 이메일 본문 생성
+			$rows_html = '';
+			foreach ($prospects as $i => $p) {
+				$is_new  = substr($p['register_date'], 0, 10) >= $week_start;
+				$new_tag = $is_new ? ' <span style="background:#ff4757;color:#fff;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px;">NEW</span>' : '';
+				$ct      = $ct_map[$p['customer_type']] ?? $p['customer_type'];
+				$bg      = ($i % 2 === 0) ? '#ffffff' : '#f8f9fa';
+				$rows_html .= "
+					<tr style='background:{$bg};'>
+						<td style='padding:8px 10px;text-align:center;color:#666;font-size:13px;'>" . ($i + 1) . "</td>
+						<td style='padding:8px 10px;font-weight:bold;'>" . htmlspecialchars($p['customer_name']) . $new_tag . "</td>
+						<td style='padding:8px 10px;color:#666;'>" . $ct . "</td>
+						<td style='padding:8px 10px;'>" . htmlspecialchars($p['customer_phone']) . "</td>
+						<td style='padding:8px 10px;text-align:center;'>" . (int)$p['item_count'] . "개</td>
+						<td style='padding:8px 10px;text-align:right;color:#2563eb;font-weight:bold;'>" . number_format((int)$p['total_pay']) . "원</td>
+						<td style='padding:8px 10px;text-align:center;color:#666;'>" . htmlspecialchars($p['member_id']) . "</td>
+						<td style='padding:8px 10px;text-align:center;color:#999;font-size:12px;'>" . substr($p['register_date'], 0, 10) . "</td>
+					</tr>
+				";
+			}
+
+			$body = "
+<!DOCTYPE html>
+<html>
+<head><meta charset='UTF-8'></head>
+<body style='margin:0;padding:0;background:#f0f2f5;font-family:\"Apple SD Gothic Neo\",\"Malgun Gothic\",sans-serif;'>
+<div style='max-width:800px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);'>
+
+  <!-- 헤더 -->
+  <div style='background:#1e40af;padding:30px 30px 20px;'>
+    <div style='color:#93c5fd;font-size:13px;margin-bottom:4px;'>COWAY 영업관리시스템</div>
+    <h1 style='color:#fff;margin:0;font-size:22px;font-weight:700;'>가망고객 현황 보고</h1>
+    <div style='color:#bfdbfe;font-size:13px;margin-top:8px;'>{$report_date} 기준</div>
+  </div>
+
+  <!-- 요약 -->
+  <div style='padding:20px 30px;background:#eff6ff;border-bottom:1px solid #dbeafe;display:flex;gap:20px;'>
+    <div style='flex:1;text-align:center;'>
+      <div style='color:#1e40af;font-size:28px;font-weight:800;'>{$total_count}</div>
+      <div style='color:#64748b;font-size:13px;margin-top:2px;'>전체 가망고객</div>
+    </div>
+    <div style='flex:1;text-align:center;'>
+      <div style='color:#1e40af;font-size:28px;font-weight:800;'>" . number_format($total_pay) . "원</div>
+      <div style='color:#64748b;font-size:13px;margin-top:2px;'>총 예상 금액</div>
+    </div>
+  </div>
+
+  <!-- 테이블 -->
+  <div style='padding:20px 30px 30px;'>
+    <table style='width:100%;border-collapse:collapse;font-size:13px;'>
+      <thead>
+        <tr style='background:#1e40af;color:#fff;'>
+          <th style='padding:10px;text-align:center;font-weight:600;width:40px;'>No</th>
+          <th style='padding:10px;text-align:left;font-weight:600;'>고객명</th>
+          <th style='padding:10px;text-align:left;font-weight:600;'>구분</th>
+          <th style='padding:10px;text-align:left;font-weight:600;'>전화번호</th>
+          <th style='padding:10px;text-align:center;font-weight:600;'>상품수</th>
+          <th style='padding:10px;text-align:right;font-weight:600;'>예상금액</th>
+          <th style='padding:10px;text-align:center;font-weight:600;'>담당자</th>
+          <th style='padding:10px;text-align:center;font-weight:600;'>등록일</th>
+        </tr>
+      </thead>
+      <tbody>
+        {$rows_html}
+      </tbody>
+    </table>
+    " . ($total_count === 0 ? "<div style='text-align:center;padding:30px;color:#999;'>가망고객이 없습니다.</div>" : "") . "
+  </div>
+
+  <!-- 푸터 -->
+  <div style='padding:15px 30px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:12px;'>
+    본 메일은 Coway 영업관리시스템에서 자동 발송되었습니다.
+  </div>
+</div>
+</body>
+</html>
+			";
+
+			// 메일 발송
+			$to      = REPORT_RECIPIENT_NAME . ' <' . REPORT_RECIPIENT_EMAIL . '>';
+			$subject = '=?UTF-8?B?' . base64_encode('[Coway] 가망고객 현황 보고 (' . $report_date . ')') . '?=';
+			$headers = implode("\r\n", [
+				'MIME-Version: 1.0',
+				'Content-Type: text/html; charset=UTF-8',
+				'From: ' . REPORT_SENDER_NAME . ' <' . REPORT_SENDER_EMAIL . '>',
+				'X-Mailer: PHP/' . phpversion(),
+			]);
+
+			$sent = mail($to, $subject, $body, $headers);
+			if (!$sent) {
+				throw new Exception('메일 발송에 실패했습니다. 서버 mail() 설정을 확인하세요.');
+			}
+
+			$data['recipient'] = REPORT_RECIPIENT_EMAIL;
+
+		} catch (Exception $e) {
+			$status  = 'fail';
+			$message = $e->getMessage();
+		}
+
+		$data['status']  = $status;
+		$data['message'] = $message;
+		echo json_encode($data, JSON_UNESCAPED_UNICODE);
+	}
+
 	//주문 저장
 	public function saveOrder(): void
 	{

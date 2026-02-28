@@ -56,6 +56,18 @@
 							</a>
 						</li>
 
+						<!-- 보고서 -->
+						<li class="nav-section">
+							<span class="sidebar-mini-icon"><i class="fa fa-ellipsis-h"></i></span>
+							<h4 class="text-section">보고서</h4>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Order/prospectReport') !== false) ? 'active' : '' ?>">
+							<a href="/Order/prospectReport">
+								<i class="fas fa-file-alt"></i>
+								<p>가망고객 보고서</p>
+							</a>
+						</li>
+
 					</ul>
 				</div>
 			</div>
