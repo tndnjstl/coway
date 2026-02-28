@@ -88,7 +88,7 @@ class OrderController
 		// 상태별 건수 (계정 기준)
 		$status_counts = ['prospect' => 0, 'contracted' => 0, 'installed' => 0];
 		$sc_where = ($mf !== '') ? "WHERE {$mf}" : '';
-		$cr = $db_local->query("SELECT status, COUNT(*) AS cnt FROM tndnjstl_order {$sc_where} GROUP BY status");
+		$cr = $db_local->query("SELECT status, COUNT(*) AS cnt FROM tndnjstl_order AS o {$sc_where} GROUP BY status");
 		if ($cr) {
 			while ($row = $cr->fetch_assoc()) {
 				if (isset($status_counts[$row['status']])) {
