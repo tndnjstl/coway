@@ -6,7 +6,13 @@ $customer_type_map   = ['P' => '개인', 'B' => '개인사업자', 'C' => '법�
 $customer_type_badge = ['P' => 'bg-secondary', 'B' => 'bg-info', 'C' => 'bg-warning text-dark'];
 $status_map          = ['prospect' => '가망고객', 'contracted' => '계약완료', 'installed' => '설치완료'];
 $status_badge        = ['prospect' => 'bg-light text-secondary border', 'contracted' => 'bg-primary', 'installed' => 'bg-success'];
-$keyword             = htmlspecialchars($_GET['keyword'] ?? '');
+$keyword             = htmlspecialchars($_GET['keyword']   ?? '');
+$filter_status       = htmlspecialchars($_GET['status']    ?? '');
+$filter_type         = htmlspecialchars($_GET['type']      ?? '');
+$filter_date_from    = htmlspecialchars($_GET['date_from'] ?? '');
+$filter_date_to      = htmlspecialchars($_GET['date_to']   ?? '');
+$has_filter          = $keyword !== '' || $filter_status !== '' || $filter_type !== '' || $filter_date_from !== '' || $filter_date_to !== '';
+$total_count         = count($orders);
 ?>
 
 <div class="wrapper">
@@ -25,32 +31,83 @@ $keyword             = htmlspecialchars($_GET['keyword'] ?? '');
 					</a>
 				</div>
 
-				<!-- 검색창 -->
+				<!-- 검색/필터 -->
 				<form method="GET" action="/Order/orderList" class="mb-3">
-					<div class="input-group">
-						<input type="text" name="keyword" class="form-control form-control-sm"
-							placeholder="고객명 또는 전화번호 검색"
-							value="<?= $keyword ?>">
-						<button class="btn btn-outline-secondary btn-sm" type="submit">
-							<i class="fas fa-search"></i>
-						</button>
-						<?php if ($keyword !== ''): ?>
-						<a href="/Order/orderList" class="btn btn-outline-danger btn-sm">
-							<i class="fas fa-times"></i>
-						</a>
-						<?php endif; ?>
+					<div class="card border-0 shadow-sm">
+						<div class="card-body p-3">
+							<div class="row g-2 align-items-end">
+								<div class="col-12 col-sm-4">
+									<label class="form-label small fw-bold mb-1">검색</label>
+									<input type="text" name="keyword" class="form-control form-control-sm"
+										placeholder="고객명 또는 전화번호"
+										value="<?= $keyword ?>">
+								</div>
+								<div class="col-6 col-sm-2">
+									<label class="form-label small fw-bold mb-1">상태</label>
+									<select name="status" class="form-select form-select-sm">
+										<option value="">전체</option>
+										<option value="prospect"   <?= $filter_status === 'prospect'   ? 'selected' : '' ?>>가망고객</option>
+										<option value="contracted" <?= $filter_status === 'contracted' ? 'selected' : '' ?>>계약완료</option>
+										<option value="installed"  <?= $filter_status === 'installed'  ? 'selected' : '' ?>>설치완료</option>
+									</select>
+								</div>
+								<div class="col-6 col-sm-2">
+									<label class="form-label small fw-bold mb-1">고객구분</label>
+									<select name="type" class="form-select form-select-sm">
+										<option value="">전체</option>
+										<option value="P" <?= $filter_type === 'P' ? 'selected' : '' ?>>개인</option>
+										<option value="B" <?= $filter_type === 'B' ? 'selected' : '' ?>>개인사업자</option>
+										<option value="C" <?= $filter_type === 'C' ? 'selected' : '' ?>>법인사업자</option>
+									</select>
+								</div>
+								<div class="col-6 col-sm-2">
+									<label class="form-label small fw-bold mb-1">등록일 시작</label>
+									<input type="date" name="date_from" class="form-control form-control-sm" value="<?= $filter_date_from ?>">
+								</div>
+								<div class="col-6 col-sm-2">
+									<label class="form-label small fw-bold mb-1">등록일 종료</label>
+									<input type="date" name="date_to" class="form-control form-control-sm" value="<?= $filter_date_to ?>">
+								</div>
+							</div>
+							<div class="d-flex gap-2 mt-3">
+								<button type="submit" class="btn btn-primary btn-sm">
+									<i class="fas fa-search me-1"></i> 검색
+								</button>
+								<?php if ($has_filter): ?>
+								<a href="/Order/orderList" class="btn btn-outline-secondary btn-sm">
+									<i class="fas fa-times me-1"></i> 초기화
+								</a>
+								<?php endif; ?>
+							</div>
+						</div>
 					</div>
 				</form>
 
-				<?php if ($keyword !== '' && empty($orders)): ?>
-					<div class="text-center text-muted py-5">
-						<i class="fas fa-search fa-2x mb-2 d-block"></i>
-						"<?= $keyword ?>"에 대한 검색 결과가 없습니다.
+				<!-- 결과 요약 -->
+				<div class="d-flex align-items-center justify-content-between mb-2 px-1">
+					<span class="small text-muted">
+						<?php if ($has_filter): ?>
+						검색 결과 <strong><?= $total_count ?>건</strong>
+						<?php else: ?>
+						전체 <strong><?= $total_count ?>건</strong>
+						<?php endif; ?>
+					</span>
+					<div class="d-flex gap-2 small">
+						<span class="text-muted">가망 <strong class="text-secondary"><?= $status_counts['prospect'] ?></strong></span>
+						<span class="text-muted">계약 <strong class="text-primary"><?= $status_counts['contracted'] ?></strong></span>
+						<span class="text-muted">설치 <strong class="text-success"><?= $status_counts['installed'] ?></strong></span>
 					</div>
-				<?php elseif (empty($orders)): ?>
+				</div>
+
+				<?php if (empty($orders)): ?>
 					<div class="text-center text-muted py-5">
+						<?php if ($has_filter): ?>
+						<i class="fas fa-search fa-2x mb-2 d-block"></i>
+						검색 조건에 맞는 주문이 없습니다.
+						<?php else: ?>
 						<i class="fas fa-clipboard-list fa-2x mb-2 d-block"></i>
 						등록된 주문이 없습니다.
+						<?php endif; ?>
 					</div>
 				<?php else: ?>
 					<?php foreach ($orders as $order):

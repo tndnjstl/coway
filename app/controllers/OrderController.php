@@ -14,12 +14,34 @@ class OrderController
 		global $db_local;
 		login_check();
 
-		$keyword = trim($_GET['keyword'] ?? '');
-		$where   = '';
+		$keyword       = trim($_GET['keyword']     ?? '');
+		$filter_status = trim($_GET['status']      ?? '');
+		$filter_type   = trim($_GET['type']        ?? '');
+		$date_from     = trim($_GET['date_from']   ?? '');
+		$date_to       = trim($_GET['date_to']     ?? '');
+
+		$conds = [];
 		if ($keyword !== '') {
 			$kw    = $db_local->real_escape_string($keyword);
-			$where = "WHERE o.customer_name LIKE '%{$kw}%' OR o.customer_phone LIKE '%{$kw}%'";
+			$conds[] = "(o.customer_name LIKE '%{$kw}%' OR o.customer_phone LIKE '%{$kw}%')";
 		}
+		if (in_array($filter_status, ['prospect', 'contracted', 'installed'])) {
+			$st      = $db_local->real_escape_string($filter_status);
+			$conds[] = "o.status = '{$st}'";
+		}
+		if (in_array($filter_type, ['P', 'B', 'C'])) {
+			$tp      = $db_local->real_escape_string($filter_type);
+			$conds[] = "o.customer_type = '{$tp}'";
+		}
+		if ($date_from !== '') {
+			$df      = $db_local->real_escape_string($date_from);
+			$conds[] = "DATE(o.register_date) >= '{$df}'";
+		}
+		if ($date_to !== '') {
+			$dt      = $db_local->real_escape_string($date_to);
+			$conds[] = "DATE(o.register_date) <= '{$dt}'";
+		}
+		$where = count($conds) > 0 ? 'WHERE ' . implode(' AND ', $conds) : '';
 
 		$sql = "
 			SELECT
@@ -44,6 +66,17 @@ class OrderController
 		$orders = [];
 		while ($row = $result->fetch_assoc()) {
 			$orders[] = $row;
+		}
+
+		// 상태별 전체 건수 (필터 미적용 기준)
+		$status_counts = ['prospect' => 0, 'contracted' => 0, 'installed' => 0];
+		$cr = $db_local->query("SELECT status, COUNT(*) AS cnt FROM tndnjstl_order GROUP BY status");
+		if ($cr) {
+			while ($row = $cr->fetch_assoc()) {
+				if (isset($status_counts[$row['status']])) {
+					$status_counts[$row['status']] = (int)$row['cnt'];
+				}
+			}
 		}
 
 		include VIEW_PATH . '/order_list_view.php';
