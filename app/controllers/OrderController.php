@@ -14,6 +14,13 @@ class OrderController
 		global $db_local;
 		login_check();
 
+		$keyword = trim($_GET['keyword'] ?? '');
+		$where   = '';
+		if ($keyword !== '') {
+			$kw    = $db_local->real_escape_string($keyword);
+			$where = "WHERE o.customer_name LIKE '%{$kw}%' OR o.customer_phone LIKE '%{$kw}%'";
+		}
+
 		$sql = "
 			SELECT
 				o.uid,
@@ -22,11 +29,13 @@ class OrderController
 				o.customer_phone,
 				o.member_id,
 				o.memo,
+				o.status,
 				o.register_date,
-				COUNT(oi.uid)    AS item_count,
+				COUNT(oi.uid)     AS item_count,
 				SUM(oi.total_pay) AS total_pay
 			FROM tndnjstl_order AS o
 			LEFT JOIN tndnjstl_order_item AS oi ON oi.order_uid = o.uid
+			{$where}
 			GROUP BY o.uid
 			ORDER BY o.register_date DESC
 		";
@@ -63,7 +72,7 @@ class OrderController
 			}
 
 			// 주문 마스터
-			$r = $db_local->query("SELECT * FROM tndnjstl_order WHERE uid = {$order_uid} LIMIT 1");
+			$r     = $db_local->query("SELECT * FROM tndnjstl_order WHERE uid = {$order_uid} LIMIT 1");
 			$order = $r ? $r->fetch_assoc() : null;
 			if (!$order) {
 				throw new Exception('주문을 찾을 수 없습니다.');
@@ -76,8 +85,89 @@ class OrderController
 				$items[] = $row;
 			}
 
-			$data['order'] = $order;
-			$data['items'] = $items;
+			// 계약 정보 (설치완료인 경우)
+			$contract = null;
+			if ($order['status'] === 'installed') {
+				$rc = $db_local->query("SELECT * FROM tndnjstl_contract WHERE order_uid = {$order_uid} ORDER BY uid DESC LIMIT 1");
+				if ($rc && $rc->num_rows > 0) {
+					$contract = $rc->fetch_assoc();
+				}
+			}
+
+			$data['order']    = $order;
+			$data['items']    = $items;
+			$data['contract'] = $contract;
+
+		} catch (Exception $e) {
+			$status  = 'fail';
+			$message = $e->getMessage();
+		}
+
+		$data['status']  = $status;
+		$data['message'] = $message;
+		echo json_encode($data, JSON_UNESCAPED_UNICODE);
+	}
+
+	//주문 상태 변경 (AJAX)
+	public function updateOrderStatus(): void
+	{
+		global $db_local;
+
+		$status  = 'success';
+		$message = '';
+		$data    = [];
+
+		try {
+			if (!login_check(true)) {
+				throw new Exception('로그인 후 이용해주세요.');
+			}
+
+			$json           = json_decode(file_get_contents('php://input'), true);
+			$order_uid      = (int)($json['order_uid']      ?? 0);
+			$new_status     = trim($json['new_status']      ?? '');
+			$contract_start = trim($json['contract_start']  ?? '');
+			$duty_year      = (int)($json['duty_year']      ?? 0);
+
+			if (!$order_uid) {
+				throw new Exception('잘못된 요청입니다.');
+			}
+			if (!in_array($new_status, ['prospect', 'contracted', 'installed'])) {
+				throw new Exception('유효하지 않은 상태값입니다.');
+			}
+
+			// 기존 주문 확인
+			$r   = $db_local->query("SELECT uid, status FROM tndnjstl_order WHERE uid = {$order_uid} LIMIT 1");
+			$ord = $r ? $r->fetch_assoc() : null;
+			if (!$ord) {
+				throw new Exception('주문을 찾을 수 없습니다.');
+			}
+
+			// 설치완료 처리 시 계약 정보 필수
+			if ($new_status === 'installed') {
+				if ($contract_start === '') {
+					throw new Exception('계약 시작일을 입력해주세요.');
+				}
+				if ($duty_year <= 0) {
+					throw new Exception('의무기간을 선택해주세요.');
+				}
+				$cs = $db_local->real_escape_string($contract_start);
+				// 기존 계약이 있으면 삭제 후 재등록
+				$db_local->query("DELETE FROM tndnjstl_contract WHERE order_uid = {$order_uid}");
+				$db_local->query("
+					INSERT INTO tndnjstl_contract SET
+						order_uid      = {$order_uid},
+						contract_start = '{$cs}',
+						contract_end   = DATE_ADD('{$cs}', INTERVAL {$duty_year} YEAR),
+						duty_year      = {$duty_year},
+						register_date  = NOW()
+				");
+			}
+
+			// 상태 업데이트
+			$ns = $db_local->real_escape_string($new_status);
+			$db_local->query("UPDATE tndnjstl_order SET status = '{$ns}' WHERE uid = {$order_uid}");
+
+			$data['new_status'] = $new_status;
 
 		} catch (Exception $e) {
 			$status  = 'fail';
@@ -142,6 +232,7 @@ class OrderController
 					customer_phone = '{$customer_phone}',
 					member_id      = '{$member_id}',
 					memo           = '{$memo}',
+					status         = 'prospect',
 					register_date  = NOW()
 			");
 
