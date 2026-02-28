@@ -94,9 +94,106 @@ class OrderController
 				}
 			}
 
-			$data['order']    = $order;
-			$data['items']    = $items;
-			$data['contract'] = $contract;
+			// 상담내역
+			$rc2           = $db_local->query("SELECT uid, content, member_id, consult_date FROM tndnjstl_consultation WHERE order_uid = {$order_uid} ORDER BY consult_date DESC");
+			$consultations = [];
+			if ($rc2) {
+				while ($row = $rc2->fetch_assoc()) {
+					$consultations[] = $row;
+				}
+			}
+
+			$data['order']         = $order;
+			$data['items']         = $items;
+			$data['contract']      = $contract;
+			$data['consultations'] = $consultations;
+
+		} catch (Exception $e) {
+			$status  = 'fail';
+			$message = $e->getMessage();
+		}
+
+		$data['status']  = $status;
+		$data['message'] = $message;
+		echo json_encode($data, JSON_UNESCAPED_UNICODE);
+	}
+
+	//상담내역 저장 (AJAX)
+	public function saveConsultation(): void
+	{
+		global $db_local;
+
+		$status  = 'success';
+		$message = '';
+		$data    = [];
+
+		try {
+			if (!login_check(true)) {
+				throw new Exception('로그인 후 이용해주세요.');
+			}
+
+			$json      = json_decode(file_get_contents('php://input'), true);
+			$order_uid = (int)($json['order_uid'] ?? 0);
+			$content   = trim($json['content']   ?? '');
+
+			if (!$order_uid) throw new Exception('잘못된 요청입니다.');
+			if ($content === '') throw new Exception('상담내역을 입력해주세요.');
+
+			$member_id = $db_local->real_escape_string($_SESSION['member_id'] ?? '');
+			$content   = $db_local->real_escape_string($content);
+
+			$db_local->query("
+				INSERT INTO tndnjstl_consultation SET
+					order_uid    = {$order_uid},
+					content      = '{$content}',
+					member_id    = '{$member_id}',
+					consult_date = NOW()
+			");
+			$new_uid = $db_local->insert_id;
+			if (!$new_uid) throw new Exception('저장에 실패했습니다.');
+
+			$data['consultation'] = [
+				'uid'          => $new_uid,
+				'content'      => stripslashes($content),
+				'member_id'    => $member_id,
+				'consult_date' => date('Y-m-d H:i:s'),
+			];
+
+		} catch (Exception $e) {
+			$status  = 'fail';
+			$message = $e->getMessage();
+		}
+
+		$data['status']  = $status;
+		$data['message'] = $message;
+		echo json_encode($data, JSON_UNESCAPED_UNICODE);
+	}
+
+	//상담내역 삭제 (AJAX)
+	public function deleteConsultation(): void
+	{
+		global $db_local;
+
+		$status  = 'success';
+		$message = '';
+		$data    = [];
+
+		try {
+			if (!login_check(true)) {
+				throw new Exception('로그인 후 이용해주세요.');
+			}
+
+			$json            = json_decode(file_get_contents('php://input'), true);
+			$consultation_uid = (int)($json['consultation_uid'] ?? 0);
+			$member_id        = $_SESSION['member_id'] ?? '';
+
+			if (!$consultation_uid) throw new Exception('잘못된 요청입니다.');
+
+			// 본인 작성 확인
+			$r = $db_local->query("SELECT uid FROM tndnjstl_consultation WHERE uid = {$consultation_uid} AND member_id = '" . $db_local->real_escape_string($member_id) . "' LIMIT 1");
+			if (!$r || $r->num_rows === 0) throw new Exception('삭제 권한이 없습니다.');
+
+			$db_local->query("DELETE FROM tndnjstl_consultation WHERE uid = {$consultation_uid}");
 
 		} catch (Exception $e) {
 			$status  = 'fail';
@@ -185,9 +282,30 @@ class OrderController
 		global $db_local;
 		login_check();
 
-		// 이번 주 월요일 ~ 오늘
-		$week_start = date('Y-m-d', strtotime('monday this week'));
+		// 기간 파라미터 처리
+		$period     = $_GET['period'] ?? 'week';
+		$date_from  = trim($_GET['date_from'] ?? '');
+		$date_to    = trim($_GET['date_to']   ?? '');
 		$today      = date('Y-m-d');
+		$week_start = date('Y-m-d', strtotime('monday this week'));
+
+		if ($period === 'month') {
+			$date_from = date('Y-m-01');
+			$date_to   = $today;
+		} elseif ($period === 'all') {
+			$date_from = '2000-01-01';
+			$date_to   = $today;
+		} elseif ($period === 'custom' && $date_from && $date_to) {
+			// 사용자 입력값 그대로
+		} else {
+			// 기본: 이번 주
+			$period    = 'week';
+			$date_from = $week_start;
+			$date_to   = $today;
+		}
+
+		$period_label_map = ['week' => '이번 주', 'month' => '이번 달', 'all' => '전체'];
+		$period_label     = $period_label_map[$period] ?? ($date_from . ' ~ ' . $date_to);
 
 		// 전체 현재 가망고객 목록
 		$sql = "
@@ -207,11 +325,32 @@ class OrderController
 			GROUP BY o.uid
 			ORDER BY o.register_date DESC
 		";
-		$result   = $db_local->query($sql);
+		$result    = $db_local->query($sql);
 		$prospects = [];
 		while ($row = $result->fetch_assoc()) {
 			$prospects[] = $row;
 		}
+
+		// 각 가망고객의 기간 내 상담내역 조회
+		$df = $db_local->real_escape_string($date_from);
+		$dt = $db_local->real_escape_string($date_to);
+		foreach ($prospects as &$p) {
+			$oid = (int)$p['uid'];
+			$rc  = $db_local->query("
+				SELECT uid, content, member_id, consult_date
+				FROM tndnjstl_consultation
+				WHERE order_uid = {$oid}
+				  AND DATE(consult_date) BETWEEN '{$df}' AND '{$dt}'
+				ORDER BY consult_date ASC
+			");
+			$p['consultations'] = [];
+			if ($rc) {
+				while ($crow = $rc->fetch_assoc()) {
+					$p['consultations'][] = $crow;
+				}
+			}
+		}
+		unset($p);
 
 		// 이번 주 신규 등록 건
 		$new_count = 0;
@@ -256,6 +395,11 @@ class OrderController
 				throw new Exception('email_config.php에서 수신자 이메일을 설정해주세요.');
 			}
 
+			// 기간 파라미터 (AJAX body에서 받음)
+			$json_body  = json_decode(file_get_contents('php://input'), true);
+			$date_from  = trim($json_body['date_from'] ?? date('Y-m-d', strtotime('monday this week')));
+			$date_to    = trim($json_body['date_to']   ?? date('Y-m-d'));
+
 			// 가망고객 목록 조회
 			$sql = "
 				SELECT
@@ -279,88 +423,93 @@ class OrderController
 				$prospects[] = $row;
 			}
 
-			$ct_map     = ['P' => '개인', 'B' => '개인사업자', 'C' => '법인사업자'];
+			// 기간 내 상담내역 각 고객별 조회
+			$df = $db_local->real_escape_string($date_from);
+			$dt = $db_local->real_escape_string($date_to);
+			foreach ($prospects as &$p) {
+				$oid = (int)$p['uid'];
+				$rc  = $db_local->query("
+					SELECT content, member_id, consult_date
+					FROM tndnjstl_consultation
+					WHERE order_uid = {$oid}
+					  AND DATE(consult_date) BETWEEN '{$df}' AND '{$dt}'
+					ORDER BY consult_date ASC
+				");
+				$p['consultations'] = [];
+				if ($rc) {
+					while ($crow = $rc->fetch_assoc()) {
+						$p['consultations'][] = $crow;
+					}
+				}
+			}
+			unset($p);
+
+			$ct_map      = ['P' => '개인', 'B' => '개인사업자', 'C' => '법인사업자'];
 			$report_date = date('Y년 m월 d일');
 			$week_start  = date('Y-m-d', strtotime('monday this week'));
 			$total_count = count($prospects);
 			$total_pay   = array_sum(array_column($prospects, 'total_pay'));
+			$period_label = $date_from . ' ~ ' . $date_to;
 
-			// HTML 이메일 본문 생성
-			$rows_html = '';
+			// 고객별 카드 HTML 생성
+			$cards_html = '';
 			foreach ($prospects as $i => $p) {
-				$is_new  = substr($p['register_date'], 0, 10) >= $week_start;
-				$new_tag = $is_new ? ' <span style="background:#ff4757;color:#fff;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px;">NEW</span>' : '';
-				$ct      = $ct_map[$p['customer_type']] ?? $p['customer_type'];
-				$bg      = ($i % 2 === 0) ? '#ffffff' : '#f8f9fa';
-				$rows_html .= "
-					<tr style='background:{$bg};'>
-						<td style='padding:8px 10px;text-align:center;color:#666;font-size:13px;'>" . ($i + 1) . "</td>
-						<td style='padding:8px 10px;font-weight:bold;'>" . htmlspecialchars($p['customer_name']) . $new_tag . "</td>
-						<td style='padding:8px 10px;color:#666;'>" . $ct . "</td>
-						<td style='padding:8px 10px;'>" . htmlspecialchars($p['customer_phone']) . "</td>
-						<td style='padding:8px 10px;text-align:center;'>" . (int)$p['item_count'] . "개</td>
-						<td style='padding:8px 10px;text-align:right;color:#2563eb;font-weight:bold;'>" . number_format((int)$p['total_pay']) . "원</td>
-						<td style='padding:8px 10px;text-align:center;color:#666;'>" . htmlspecialchars($p['member_id']) . "</td>
-						<td style='padding:8px 10px;text-align:center;color:#999;font-size:12px;'>" . substr($p['register_date'], 0, 10) . "</td>
-					</tr>
-				";
+				$is_new   = substr($p['register_date'], 0, 10) >= $week_start;
+				$new_tag  = $is_new ? ' <span style="background:#ef4444;color:#fff;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px;">NEW</span>' : '';
+				$ct       = $ct_map[$p['customer_type']] ?? $p['customer_type'];
+				$consults = $p['consultations'];
+
+				$cards_html .= "<div style='border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;overflow:hidden;'>";
+				$cards_html .= "<div style='background:#f8fafc;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;'>";
+				$cards_html .= "<div><span style='font-weight:700;font-size:14px;'>" . htmlspecialchars($p['customer_name']) . "</span>" . $new_tag;
+				$cards_html .= "<span style='color:#64748b;font-size:12px;margin-left:8px;'>{$ct}</span>";
+				$cards_html .= "<div style='font-size:12px;color:#64748b;margin-top:2px;'>" . htmlspecialchars($p['customer_phone']) . " · 담당: " . htmlspecialchars($p['member_id']) . "</div></div>";
+				$cards_html .= "<div style='text-align:right;'><div style='color:#1d4ed8;font-weight:700;font-size:13px;'>" . number_format((int)$p['total_pay']) . "원</div>";
+				$cards_html .= "<div style='color:#94a3b8;font-size:11px;'>상품 " . (int)$p['item_count'] . "개</div></div></div>";
+
+				if (!empty($consults)) {
+					$cards_html .= "<div style='padding:10px 16px;'>";
+					$cards_html .= "<div style='font-size:11px;color:#64748b;font-weight:600;margin-bottom:6px;'>상담내역 (" . count($consults) . "건)</div>";
+					foreach ($consults as $c) {
+						$cdate = substr($c['consult_date'], 0, 16);
+						$cards_html .= "<div style='padding:7px 10px;background:#f1f5f9;border-radius:5px;margin-bottom:5px;font-size:12px;'>";
+						$cards_html .= "<span style='color:#94a3b8;font-size:11px;'>{$cdate} · " . htmlspecialchars($c['member_id']) . "</span><br>";
+						$cards_html .= "<span>" . nl2br(htmlspecialchars($c['content'])) . "</span></div>";
+					}
+					$cards_html .= "</div>";
+				} else {
+					$cards_html .= "<div style='padding:10px 16px;font-size:12px;color:#94a3b8;'>기간 내 상담내역 없음</div>";
+				}
+				$cards_html .= "</div>";
 			}
 
 			$body = "
-<!DOCTYPE html>
-<html>
-<head><meta charset='UTF-8'></head>
-<body style='margin:0;padding:0;background:#f0f2f5;font-family:\"Apple SD Gothic Neo\",\"Malgun Gothic\",sans-serif;'>
-<div style='max-width:800px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);'>
-
-  <!-- 헤더 -->
-  <div style='background:#1e40af;padding:30px 30px 20px;'>
-    <div style='color:#93c5fd;font-size:13px;margin-bottom:4px;'>COWAY 영업관리시스템</div>
-    <h1 style='color:#fff;margin:0;font-size:22px;font-weight:700;'>가망고객 현황 보고</h1>
-    <div style='color:#bfdbfe;font-size:13px;margin-top:8px;'>{$report_date} 기준</div>
+<!DOCTYPE html><html><head><meta charset='UTF-8'></head>
+<body style='margin:0;padding:0;background:#f0f2f5;font-family:Malgun Gothic,sans-serif;'>
+<div style='max-width:700px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.1);'>
+  <div style='background:#1e40af;padding:28px 28px 18px;'>
+    <div style='color:#93c5fd;font-size:12px;margin-bottom:4px;'>COWAY 영업관리시스템</div>
+    <h1 style='color:#fff;margin:0;font-size:20px;font-weight:700;'>가망고객 현황 보고</h1>
+    <div style='color:#bfdbfe;font-size:12px;margin-top:6px;'>{$report_date} · 상담내역 기간: {$period_label}</div>
   </div>
-
-  <!-- 요약 -->
-  <div style='padding:20px 30px;background:#eff6ff;border-bottom:1px solid #dbeafe;display:flex;gap:20px;'>
+  <div style='padding:14px 28px;background:#eff6ff;border-bottom:1px solid #dbeafe;display:flex;'>
     <div style='flex:1;text-align:center;'>
-      <div style='color:#1e40af;font-size:28px;font-weight:800;'>{$total_count}</div>
-      <div style='color:#64748b;font-size:13px;margin-top:2px;'>전체 가망고객</div>
+      <div style='color:#1e40af;font-size:24px;font-weight:800;'>{$total_count}</div>
+      <div style='color:#64748b;font-size:12px;'>전체 가망고객</div>
     </div>
-    <div style='flex:1;text-align:center;'>
-      <div style='color:#1e40af;font-size:28px;font-weight:800;'>" . number_format($total_pay) . "원</div>
-      <div style='color:#64748b;font-size:13px;margin-top:2px;'>총 예상 금액</div>
+    <div style='flex:1;text-align:center;border-left:1px solid #dbeafe;'>
+      <div style='color:#1e40af;font-size:24px;font-weight:800;'>" . number_format($total_pay) . "원</div>
+      <div style='color:#64748b;font-size:12px;'>총 예상 금액</div>
     </div>
   </div>
-
-  <!-- 테이블 -->
-  <div style='padding:20px 30px 30px;'>
-    <table style='width:100%;border-collapse:collapse;font-size:13px;'>
-      <thead>
-        <tr style='background:#1e40af;color:#fff;'>
-          <th style='padding:10px;text-align:center;font-weight:600;width:40px;'>No</th>
-          <th style='padding:10px;text-align:left;font-weight:600;'>고객명</th>
-          <th style='padding:10px;text-align:left;font-weight:600;'>구분</th>
-          <th style='padding:10px;text-align:left;font-weight:600;'>전화번호</th>
-          <th style='padding:10px;text-align:center;font-weight:600;'>상품수</th>
-          <th style='padding:10px;text-align:right;font-weight:600;'>예상금액</th>
-          <th style='padding:10px;text-align:center;font-weight:600;'>담당자</th>
-          <th style='padding:10px;text-align:center;font-weight:600;'>등록일</th>
-        </tr>
-      </thead>
-      <tbody>
-        {$rows_html}
-      </tbody>
-    </table>
+  <div style='padding:18px 28px 28px;'>
+    {$cards_html}
     " . ($total_count === 0 ? "<div style='text-align:center;padding:30px;color:#999;'>가망고객이 없습니다.</div>" : "") . "
   </div>
-
-  <!-- 푸터 -->
-  <div style='padding:15px 30px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:12px;'>
+  <div style='padding:14px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:12px;'>
     본 메일은 Coway 영업관리시스템에서 자동 발송되었습니다.
   </div>
-</div>
-</body>
-</html>
+</div></body></html>
 			";
 
 			// 메일 발송
@@ -379,6 +528,7 @@ class OrderController
 			}
 
 			$data['recipient'] = REPORT_RECIPIENT_EMAIL;
+
 
 		} catch (Exception $e) {
 			$status  = 'fail';

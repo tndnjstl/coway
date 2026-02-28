@@ -42,16 +42,27 @@
 		.report-table thead tr { background: #1e40af; color: #fff; }
 		.report-table thead th { padding: 10px 12px; font-weight: 600; white-space: nowrap; }
 		.report-table tbody tr:nth-child(even) { background: #f8fafc; }
-		.report-table tbody td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+		.report-table tbody td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
 		.report-table tbody tr:hover { background: #eff6ff; }
 		.badge-new { background: #ef4444; color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle; }
 		.report-footer-note { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 24px; }
+		.consult-list { margin-top: 4px; padding-left: 0; list-style: none; }
+		.consult-list li { font-size: 11px; color: #475569; padding: 2px 0; border-top: 1px dashed #e2e8f0; margin-top: 2px; }
+		.consult-list li:first-child { border-top: none; margin-top: 0; }
+		.consult-date { color: #94a3b8; margin-right: 4px; }
+
+		/* ─── 기간 선택 툴바 ─── */
+		.period-bar {
+			background: #fff; border-bottom: 1px solid #e2e8f0;
+			padding: 10px 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+		}
 
 		/* ─── 인쇄 전용 ─── */
 		@media print {
 			@page { size: A4; margin: 14mm 12mm; }
 			body { background: #fff !important; font-size: 12px; }
 			.report-toolbar { display: none !important; }
+			.period-bar { display: none !important; }
 			.report-page { margin: 0; box-shadow: none; border-radius: 0; }
 			.report-header { padding: 16px 20px 12px; }
 			.report-body { padding: 12px 20px 20px; }
@@ -71,9 +82,11 @@
 <?php
 $ct_map          = ['P' => '개인', 'B' => '개인사업자', 'C' => '법인사업자'];
 $report_date     = date('Y년 m월 d일');
-$week_start_fmt  = date('Y년 m월 d일', strtotime('monday this week'));
 $total_count     = count($prospects);
 $total_pay       = array_sum(array_column($prospects, 'total_pay'));
+$period_label    = $period_label ?? '이번 주';
+$date_from_fmt   = isset($date_from) ? date('Y년 m월 d일', strtotime($date_from)) : '';
+$date_to_fmt     = isset($date_to)   ? date('Y년 m월 d일', strtotime($date_to))   : '';
 ?>
 
 <!-- 툴바 (화면에서만 보임) -->
@@ -95,6 +108,34 @@ $total_pay       = array_sum(array_column($prospects, 'total_pay'));
 	</div>
 </div>
 
+<!-- 기간 선택 바 -->
+<div class="period-bar">
+	<span class="text-muted small fw-bold me-2">상담내역 기간:</span>
+	<a href="/Order/prospectReport?period=week"
+	   class="btn btn-sm <?= ($period ?? 'week') === 'week' ? 'btn-primary' : 'btn-outline-secondary' ?>">이번 주</a>
+	<a href="/Order/prospectReport?period=month"
+	   class="btn btn-sm <?= ($period ?? '') === 'month' ? 'btn-primary' : 'btn-outline-secondary' ?>">이번 달</a>
+	<a href="/Order/prospectReport?period=all"
+	   class="btn btn-sm <?= ($period ?? '') === 'all' ? 'btn-primary' : 'btn-outline-secondary' ?>">전체</a>
+
+	<form method="get" action="/Order/prospectReport" class="d-flex align-items-center gap-1 ms-2">
+		<input type="hidden" name="period" value="custom">
+		<input type="date" name="date_from" class="form-control form-control-sm" style="width:140px;"
+		       value="<?= htmlspecialchars($_GET['date_from'] ?? '') ?>">
+		<span class="text-muted small">~</span>
+		<input type="date" name="date_to" class="form-control form-control-sm" style="width:140px;"
+		       value="<?= htmlspecialchars($_GET['date_to'] ?? '') ?>">
+		<button type="submit" class="btn btn-sm btn-outline-primary">조회</button>
+	</form>
+
+	<span class="ms-auto text-muted small">
+		상담내역 조회: <strong><?= htmlspecialchars($period_label) ?></strong>
+		<?php if (($period ?? '') === 'custom'): ?>
+		(<?= $date_from_fmt ?> ~ <?= $date_to_fmt ?>)
+		<?php endif; ?>
+	</span>
+</div>
+
 <!-- 보고서 본문 -->
 <div class="report-page">
 
@@ -105,7 +146,12 @@ $total_pay       = array_sum(array_column($prospects, 'total_pay'));
 		<div style="color:#bfdbfe;font-size:13px;">
 			<?= $report_date ?> 기준
 			&nbsp;·&nbsp;
-			<?= $week_start_fmt ?> ~ 이번 주 신규 <strong style="color:#fff;"><?= $new_count ?>건</strong>
+			상담내역: <strong style="color:#fff;"><?= htmlspecialchars($period_label) ?></strong>
+			<?php if (($period ?? '') === 'custom'): ?>
+			(<?= $date_from_fmt ?> ~ <?= $date_to_fmt ?>)
+			<?php endif; ?>
+			&nbsp;·&nbsp;
+			이번 주 신규 <strong style="color:#fff;"><?= $new_count ?>건</strong>
 		</div>
 	</div>
 
@@ -154,6 +200,7 @@ $total_pay       = array_sum(array_column($prospects, 'total_pay'));
 					<th style="text-align:right;">예상금액</th>
 					<th style="text-align:center;">담당자</th>
 					<th style="text-align:center;">등록일</th>
+					<th>상담내역 (<?= htmlspecialchars($period_label) ?>)</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -173,6 +220,21 @@ $total_pay       = array_sum(array_column($prospects, 'total_pay'));
 					<td style="text-align:right;color:#1d4ed8;font-weight:700;"><?= number_format((int)$p['total_pay']) ?>원</td>
 					<td style="text-align:center;color:#666;"><?= htmlspecialchars($p['member_id']) ?></td>
 					<td style="text-align:center;color:#999;"><?= substr($p['register_date'], 0, 10) ?></td>
+					<td>
+						<?php if (empty($p['consultations'])): ?>
+						<span class="text-muted" style="font-size:11px;">-</span>
+						<?php else: ?>
+						<ul class="consult-list">
+							<?php foreach ($p['consultations'] as $c): ?>
+							<li>
+								<span class="consult-date"><?= substr($c['consult_date'], 0, 10) ?></span>
+								<span class="text-muted" style="font-size:10px;">[<?= htmlspecialchars($c['member_id']) ?>]</span>
+								<?= htmlspecialchars($c['content']) ?>
+							</li>
+							<?php endforeach; ?>
+						</ul>
+						<?php endif; ?>
+					</td>
 				</tr>
 				<?php endforeach; ?>
 			</tbody>
@@ -213,6 +275,10 @@ $total_pay       = array_sum(array_column($prospects, 'total_pay'));
 <script src="/assets/js/core/jquery-3.7.1.min.js"></script>
 <script src="/assets/js/core/bootstrap.min.js"></script>
 <script>
+var current_period    = '<?= htmlspecialchars($period ?? 'week') ?>';
+var current_date_from = '<?= htmlspecialchars($date_from ?? '') ?>';
+var current_date_to   = '<?= htmlspecialchars($date_to   ?? '') ?>';
+
 $('#btn-send-email').on('click', function() {
 	if (!confirm('국장님께 이메일을 발송하시겠습니까?')) return;
 
@@ -224,7 +290,11 @@ $('#btn-send-email').on('click', function() {
 		method: 'POST',
 		contentType: 'application/json',
 		dataType: 'json',
-		data: JSON.stringify({}),
+		data: JSON.stringify({
+			period:    current_period,
+			date_from: current_date_from,
+			date_to:   current_date_to
+		}),
 		success: function(res) {
 			if (res.status === 'success') {
 				$btn.removeClass('btn-warning').addClass('btn-success')

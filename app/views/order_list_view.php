@@ -69,7 +69,12 @@ $keyword             = htmlspecialchars($_GET['keyword'] ?? '');
 										<span class="badge <?= $badge ?> small"><?= $ct ?></span>
 										<span class="badge <?= $sbadge ?> status-badge small"><?= $st ?></span>
 									</div>
-									<div class="text-muted small mb-1"><?= htmlspecialchars($order['customer_phone']) ?></div>
+									<div class="d-flex align-items-center gap-2 mb-1">
+										<span class="text-muted small"><?= htmlspecialchars($order['customer_phone']) ?></span>
+										<a href="tel:<?= htmlspecialchars(preg_replace('/[^0-9]/', '', $order['customer_phone'])) ?>"
+										   class="btn btn-outline-success btn-sm py-0 px-2" style="font-size:11px;line-height:1.6;"
+										   onclick="event.stopPropagation();"><i class="fas fa-phone"></i></a>
+									</div>
 									<div class="d-flex align-items-center gap-3">
 										<span class="small text-muted">상품 <?= (int)$order['item_count'] ?>개</span>
 										<span class="small fw-bold text-primary"><?= number_format((int)$order['total_pay']) ?>원</span>
@@ -180,7 +185,7 @@ function load_order_detail(order_uid) {
 				$('#order-detail-body').html('<div class="text-danger text-center py-4">' + (res.message || '오류가 발생했습니다.') + '</div>');
 				return;
 			}
-			render_order_detail(res.order, res.items, res.contract);
+			render_order_detail(res.order, res.items, res.contract, res.consultations || []);
 		},
 		error: function() {
 			$('#order-detail-body').html('<div class="text-danger text-center py-4">서버 오류가 발생했습니다.</div>');
@@ -262,7 +267,7 @@ function esc(str) {
 }
 
 /* ─── 상세 렌더 ─── */
-function render_order_detail(order, items, contract) {
+function render_order_detail(order, items, contract, consultations) {
 	var ct   = customer_type_map[order.customer_type] || order.customer_type;
 	var html = '';
 
@@ -272,7 +277,7 @@ function render_order_detail(order, items, contract) {
 	html += '    <div class="col-6"><div class="text-muted">주문번호</div><div class="fw-bold">#' + order.uid + '</div></div>';
 	html += '    <div class="col-6"><div class="text-muted">고객구분</div><div class="fw-bold">' + ct + '</div></div>';
 	html += '    <div class="col-6"><div class="text-muted">고객명</div><div class="fw-bold">' + esc(order.customer_name) + '</div></div>';
-	html += '    <div class="col-6"><div class="text-muted">전화번호</div><div class="fw-bold">' + esc(order.customer_phone) + '</div></div>';
+	html += '    <div class="col-6"><div class="text-muted">전화번호</div><div class="fw-bold"><a href="tel:' + esc(order.customer_phone.replace(/[^0-9]/g, '')) + '" onclick="event.stopPropagation();">' + esc(order.customer_phone) + '</a></div></div>';
 	html += '    <div class="col-6"><div class="text-muted">담당자</div><div>' + esc(order.member_id) + '</div></div>';
 	html += '    <div class="col-6"><div class="text-muted">등록일시</div><div>' + order.register_date + '</div></div>';
 	if (order.memo) {
@@ -333,6 +338,31 @@ function render_order_detail(order, items, contract) {
 		html += '</div>';
 	});
 
+
+	/* 상담내역 섹션 */
+	if (order.status === 'prospect' || order.status === 'contracted') {
+		html += '<div class="mt-3">';
+		html += '  <div class="fw-bold small mb-2" style="color:#1e40af;"><i class="fas fa-comments me-1"></i>상담내역</div>';
+		if (consultations.length === 0) {
+			html += '  <div class="text-muted small py-2 text-center">상담내역이 없습니다.</div>';
+		} else {
+			$.each(consultations, function(_, c) {
+				html += '  <div class="d-flex gap-2 mb-2 align-items-start consult-item" data-uid="' + c.uid + '">';
+				html += '    <div class="flex-grow-1 p-2 rounded border" style="background:#f8f9fa;font-size:13px;">';
+				html += '      <div>' + esc(c.content) + '</div>';
+				html += '      <div class="text-muted mt-1" style="font-size:11px;">' + esc(c.member_id) + ' · ' + esc(c.consult_date.substring(0, 16)) + '</div>';
+				html += '    </div>';
+				html += '    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1 btn-del-consult flex-shrink-0" data-uid="' + c.uid + '" style="font-size:11px;">삭제</button>';
+				html += '  </div>';
+			});
+		}
+		html += '  <div class="mt-2">';
+		html += '    <textarea id="consult-content" class="form-control form-control-sm mb-1" rows="2" placeholder="상담 내용을 입력하세요..."></textarea>';
+		html += '    <button type="button" id="btn-save-consult" class="btn btn-primary btn-sm w-100">상담내역 저장</button>';
+		html += '  </div>';
+		html += '</div>';
+	}
+
 	$('#order-detail-body').html(html);
 
 	/* 상태 변경 버튼 */
@@ -347,5 +377,50 @@ function render_order_detail(order, items, contract) {
 	}
 	$('#order-detail-footer').html(footer_html);
 }
+
+/* ─── 상담내역 저장 ─── */
+$(document).on('click', '#btn-save-consult', function() {
+	var content = $('#consult-content').val().trim();
+	if (!content) { alert('상담 내용을 입력해주세요.'); return; }
+	var $btn = $(this).prop('disabled', true).text('저장 중...');
+	$.ajax({
+		url: '/Order/saveConsultation',
+		method: 'POST',
+		contentType: 'application/json',
+		dataType: 'json',
+		data: JSON.stringify({ order_uid: current_order_uid, content: content }),
+		success: function(res) {
+			if (res.status === 'success') {
+				load_order_detail(current_order_uid);
+			} else {
+				alert(res.message || '저장 실패');
+				$btn.prop('disabled', false).text('상담내역 저장');
+			}
+		},
+		error: function() { alert('서버 오류'); $btn.prop('disabled', false).text('상담내역 저장'); }
+	});
+});
+
+/* ─── 상담내역 삭제 ─── */
+$(document).on('click', '.btn-del-consult', function() {
+	if (!confirm('이 상담내역을 삭제하시겠습니까?')) return;
+	var uid = $(this).data('uid');
+	$.ajax({
+		url: '/Order/deleteConsultation',
+		method: 'POST',
+		contentType: 'application/json',
+		dataType: 'json',
+		data: JSON.stringify({ uid: uid }),
+		success: function(res) {
+			if (res.status === 'success') {
+				load_order_detail(current_order_uid);
+			} else {
+				alert(res.message || '삭제 실패');
+			}
+		},
+		error: function() { alert('서버 오류'); }
+	});
+});
+
 </script>
 <?php include APP_PATH . '/views/layouts/tail.php';?>
