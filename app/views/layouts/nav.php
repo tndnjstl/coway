@@ -15,7 +15,7 @@
 						</button>
 					</div>
 					<button class="topbar-toggler more">
-						<i class="gg-more-vertical-alt"></i>
+						<i class="fas fa-user"></i>
 					</button>
 				</div>
 				<!-- End Logo Header -->
