@@ -26,7 +26,7 @@
 
 		<div class="text-center mb-3">
 			<span class="fw-bold text-white" style="font-size:28px;letter-spacing:-0.5px;">COWAY</span>
-			<div class="text-white-50 small mt-1">영업관리시스템</div>
+			<div class="text-white-50 small mt-1">영업관리시스템ver1</div>
 		</div>
 
 		<div class="container container-login animated fadeIn">
