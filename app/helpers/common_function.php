@@ -128,6 +128,34 @@ function is_admin_role(): bool
 	return get_role() === 'admin';
 }
 
+// ──────────────────────────────────────────
+// 직급(position) 헬퍼
+// ──────────────────────────────────────────
+
+/** 현재 세션의 position 반환 (없으면 'staff') */
+function get_position(): string
+{
+	return $_SESSION['info']['position'] ?? 'staff';
+}
+
+/** 팀장 이상이면 true */
+function is_team_leader(): bool
+{
+	return in_array(get_position(), ['team_leader','director','branch_manager'], true);
+}
+
+/** 국장 이상이면 true */
+function is_director(): bool
+{
+	return in_array(get_position(), ['director','branch_manager'], true);
+}
+
+/** 지점장이면 true */
+function is_branch_manager(): bool
+{
+	return get_position() === 'branch_manager';
+}
+
 /**
  * 권한 체크. 부족하면 alert + 리다이렉트
  * $required_role : 'staff' | 'manager' | 'admin'
@@ -322,7 +350,9 @@ function crawl_product(): void
 				$cat_insert++;
 			}
 
-			// price upsert
+			// price upsert + 가격 변동 이력 기록
+			$prev_price = $db_local->query("SELECT rent_price, normal_price, setup_price FROM tndnjstl_price WHERE model_uid = '{$model_uid}' LIMIT 1")->fetch_assoc();
+
 			$db_local->query("
 				INSERT INTO tndnjstl_price SET
 					model_uid     = '{$model_uid}',
@@ -335,6 +365,30 @@ function crawl_product(): void
 					normal_price  = {$normal_price},
 					setup_price   = {$setup_price}
 			");
+
+			// 기존 가격과 달라졌을 때만 이력 저장
+			if ($prev_price && (
+				(int)$prev_price['rent_price']   !== $rent_price ||
+				(int)$prev_price['normal_price'] !== $normal_price ||
+				(int)$prev_price['setup_price']  !== $setup_price
+			)) {
+				$rp_before = (int)$prev_price['rent_price'];
+				$np_before = (int)$prev_price['normal_price'];
+				$sp_before = (int)$prev_price['setup_price'];
+				$db_local->query("
+					INSERT INTO tndnjstl_price_history SET
+						model_uid           = '{$model_uid}',
+						model_name          = '{$model_name}',
+						rent_price_before   = {$rp_before},
+						rent_price_after    = {$rent_price},
+						normal_price_before = {$np_before},
+						normal_price_after  = {$normal_price},
+						setup_price_before  = {$sp_before},
+						setup_price_after   = {$setup_price},
+						change_type         = 'auto',
+						changed_date        = NOW()
+				");
+			}
 		}
 
 		echo "  [OK] category {$category_no} → INSERT {$cat_insert}건 / UPDATE {$cat_update}건{$nl}";

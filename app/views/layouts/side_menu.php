@@ -68,6 +68,14 @@
 							</a>
 						</li>
 
+						<!-- 수수료 -->
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Commission/index') !== false) ? 'active' : '' ?>">
+							<a href="/Commission/index">
+								<i class="fas fa-won-sign"></i>
+								<p>수수료 대시보드</p>
+							</a>
+						</li>
+
 						<!-- 보고서 -->
 						<li class="nav-section">
 							<span class="sidebar-mini-icon"><i class="fa fa-ellipsis-h"></i></span>
@@ -102,6 +110,12 @@
 							<a href="/Manage/approval">
 								<i class="fas fa-check-circle"></i>
 								<p>주문 승인 관리</p>
+							</a>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Promotion') !== false) ? 'active' : '' ?>">
+							<a href="/Promotion/index">
+								<i class="fas fa-tags"></i>
+								<p>프로모션 관리</p>
 							</a>
 						</li>
 						<?php endif; ?>
