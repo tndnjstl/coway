@@ -73,7 +73,7 @@
         return match ? decodeURIComponent(match[1]) : "";
     }
     var savedId = getCookie("coway_saved_id");
-    var hasRemember = getCookie("coway_remember") !== "";
+    var hasRemember = getCookie("coway_remember_flag") === "1";
     if (savedId) {
         document.getElementById("member_id").value = savedId;
         document.getElementById("save_id").checked = true;

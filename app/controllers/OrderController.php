@@ -616,6 +616,7 @@ class OrderController
 			$customer_type  = trim($json['customer_type']  ?? '');
 			$customer_name  = trim($json['customer_name']  ?? '');
 			$customer_phone = trim($json['customer_phone'] ?? '');
+			$quote_email    = trim($json['quote_email']    ?? '');
 			$memo           = trim($json['memo']           ?? '');
 			$items          = $json['items'] ?? [];
 			$member_id      = $_SESSION['member_id'] ?? '';
@@ -637,6 +638,7 @@ class OrderController
 			$customer_type  = $db_local->real_escape_string($customer_type);
 			$customer_name  = $db_local->real_escape_string($customer_name);
 			$customer_phone = $db_local->real_escape_string($customer_phone);
+			$quote_email    = $db_local->real_escape_string($quote_email);
 			$memo           = $db_local->real_escape_string($memo);
 			$member_id      = $db_local->real_escape_string($member_id);
 
@@ -646,6 +648,7 @@ class OrderController
 					customer_type  = '{$customer_type}',
 					customer_name  = '{$customer_name}',
 					customer_phone = '{$customer_phone}',
+					quote_email    = '{$quote_email}',
 					member_id      = '{$member_id}',
 					memo           = '{$memo}',
 					status         = 'prospect',

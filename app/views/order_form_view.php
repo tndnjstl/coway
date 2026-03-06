@@ -43,6 +43,10 @@
 								<label class="form-label fw-bold small">휴대폰 번호</label>
 								<input type="tel" class="form-control" id="customer_phone" placeholder="01012345678" maxlength="11">
 							</div>
+							<div class="col-12 mt-2">
+								<label class="form-label fw-bold small">이메일 <span class="text-muted fw-normal">(견적서 발송용)</span></label>
+								<input type="email" class="form-control" id="quote_email" placeholder="example@email.com">
+							</div>
 						</div>
 					</div>
 				</div>

@@ -139,6 +139,13 @@ $total_count         = count($orders);
 								</div>
 								<div class="text-end flex-shrink-0 ms-2">
 									<div class="text-muted small mb-2"><?= $date ?></div>
+									<div class="mb-1">
+										<a href="/Quote/view?id=<?= $order['uid'] ?>"
+										   class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size:11px;line-height:1.6;"
+										   onclick="event.stopPropagation();" title="견적서">
+											<i class="fas fa-file-invoice me-1"></i>견적서
+										</a>
+									</div>
 									<i class="fas fa-chevron-right text-muted small"></i>
 								</div>
 							</div>

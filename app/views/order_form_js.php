@@ -437,6 +437,7 @@ function save_order() {
 	var customer_type  = $('input[name="customer_type"]:checked').val() || '';
 	var customer_name  = $('#customer_name').val().trim();
 	var customer_phone = $('#customer_phone').val().trim();
+	var quote_email    = $('#quote_email').val().trim();
 	var memo           = $('#order_memo').val().trim();
 
 	if (!customer_type) { alert('고객구분을 선택해주세요.'); return; }
@@ -482,6 +483,7 @@ function save_order() {
 			customer_type:  customer_type,
 			customer_name:  customer_name,
 			customer_phone: customer_phone,
+			quote_email:    quote_email,
 			memo:           memo,
 			items:          items
 		}),
@@ -492,6 +494,7 @@ function save_order() {
 				$('input[name="customer_type"][value="P"]').prop('checked', true);
 				$('#customer_name').val('');
 				$('#customer_phone').val('');
+				$('#quote_email').val('');
 				$('#order_memo').val('');
 				selected_models = {};
 				all_products    = [];

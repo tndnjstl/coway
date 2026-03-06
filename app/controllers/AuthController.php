@@ -78,8 +78,17 @@ class AuthController
 				'httponly' => true,
 				'samesite' => 'Lax',
 			]);
+			// JS에서 체크박스 표시용 (민감정보 없음)
+			setcookie('coway_remember_flag', '1', [
+				'expires'  => time() + $cookie_expire,
+				'path'     => '/',
+				'secure'   => $secure,
+				'httponly' => false,
+				'samesite' => 'Lax',
+			]);
 		} else {
 			setcookie('coway_remember', '', ['expires' => time() - 3600, 'path' => '/']);
+			setcookie('coway_remember_flag', '', ['expires' => time() - 3600, 'path' => '/']);
 		}
 
 		header('Location: /');
@@ -111,6 +120,7 @@ class AuthController
 
 		// remember-me 쿠키 삭제 (아이디 저장은 유지)
 		setcookie('coway_remember', '', ['expires' => time() - 3600, 'path' => '/']);
+		setcookie('coway_remember_flag', '', ['expires' => time() - 3600, 'path' => '/']);
 
 		header('Location: /Auth/login');
 		exit;
