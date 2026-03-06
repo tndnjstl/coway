@@ -2,7 +2,7 @@
 
 ## 1) 기본 원칙
 - 모든 코드 변경은 먼저 로컬에서 수정 후 `git`으로 관리한다.
-- 배포는 자동 CI/CD가 아니라 `curl FTP`를 사용한 수동 업로드 방식으로 진행한다.
+- 배포는 자동 CI/CD가 아니라 `deploy.sh`를 통한 수동 배포 방식으로 진행한다.
 - 배포 전에는 반드시 변경 파일과 영향 범위를 확인한다.
 
 ## 2) Git 작업 규칙
@@ -16,26 +16,19 @@
   - 변경 내용 확인: `git diff` / `git diff --staged`
   - 커밋 이력 확인: `git log --oneline -n 5`
 
-## 3) 배포 방식 (curl FTP 자동)
-- 원칙: `git push`와 운영 서버 반영은 별개로 관리한다.
-- FTP 정보: `ftp://112.175.185.138` / `user: tndnjstl`
-- 단일 파일 업로드:
+## 3) 배포 방식 (네트워크 제한 환경)
+- `git push`, `curl FTP` 직접 실행 금지
+- 대신 `/Users/tndnjstl/DEV/php/coway/deploy.sh` 파일로 저장
+- `deploy.sh` 내용 형식:
 
   ```bash
-  curl -T '로컬파일경로' 'ftp://112.175.185.138/원격경로' --user 'tndnjstl:rkddkwl1!'
+  #!/bin/bash
+  cd /Users/tndnjstl/DEV/php/coway
+  git push origin main
+  curl -T '파일명' 'ftp://112.175.185.138/파일명' --user 'tndnjstl:rkddkwl1!'
   ```
 
-- 배포 순서:
-  1. 배포 대상 브랜치 최신화 및 최종 커밋 확인
-  2. 변경 파일 목록 확인 (`git diff --name-only`)
-  3. 변경 파일만 `curl`로 업로드
-  4. 업로드 직후 핵심 화면/기능 스모크 테스트
-- 예시:
-
-  ```bash
-  curl -T 'product.php' 'ftp://112.175.185.138/product.php' --user 'tndnjstl:rkddkwl1!'
-  curl -T 'app/controllers/ProductController.php' 'ftp://112.175.185.138/app/controllers/ProductController.php' --user 'tndnjstl:rkddkwl1!'
-  ```
+- 저장 후 `deploy.sh 생성했습니다. 텔레그램에서 배포 실행하세요.` 라고 알릴 것
 
 ## 4) 업로드 제외/주의 항목
 - 업로드 제외:
@@ -48,7 +41,7 @@
 - [ ] 배포 파일 목록 확정
 - [ ] 관련 기능 로컬 점검 완료
 - [ ] 백업 또는 롤백 기준 커밋 기록
-- [ ] curl FTP 업로드 완료
+- [ ] deploy.sh 생성 및 텔레그램 배포 실행
 - [ ] 운영 동작 확인 (주요 페이지, 주문/상품 핵심 기능)
 
 ## 6) 롤백 기준
