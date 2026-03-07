@@ -70,5 +70,110 @@ if (table_exists($db, 'tndnjstl_order')) {
     echo "<p class='err'>ERR tndnjstl_order 테이블 없음</p>";
 }
 
+// ==========================================
+// 8. 2026년 3월 구매자 프로모션 시드 데이터
+// ==========================================
+echo "<hr><h3 style='color:#1e40af;'>3월 프로모션 시드 데이터</h3>";
+
+$promos = [
+    [
+        'promo_name'      => '타사보상할인 (정수기)',
+        'target_category' => '정수기',
+        'apply_unit'      => 'per_item',
+        'discount_target' => 'rent_amount',
+        'min_items'       => 1,
+        'discount_type'   => 'percent',
+        'discount_value'  => 15,
+        'base_fee'        => 200000,
+        'special_fee'     => 0,
+        'start_date'      => '2026-03-01',
+        'end_date'        => '2026-03-31',
+        'description'     => '설치 당일 타사 정수기가 설치장소에 있어야 함. KC마크·주요필터(UF/NF/RO) 사용 제품 한정. 패키지 할인과 중복 불가',
+        'check_name'      => '타사보상할인 (정수기)',
+    ],
+    [
+        'promo_name'      => '타사보상할인 (공기청정기)',
+        'target_category' => '공기청정기',
+        'apply_unit'      => 'per_item',
+        'discount_target' => 'rent_amount',
+        'min_items'       => 1,
+        'discount_type'   => 'amount',
+        'discount_value'  => 10000,
+        'base_fee'        => 200000,
+        'special_fee'     => 0,
+        'start_date'      => '2026-03-01',
+        'end_date'        => '2026-03-31',
+        'description'     => '설치 당일 타사 공기청정기가 설치장소에 있어야 함. 월 1만원 추가 할인. 반값할인 중복 불가',
+        'check_name'      => '타사보상할인 (공기청정기)',
+    ],
+    [
+        'promo_name'      => '재렌탈 등록비 할인',
+        'target_category' => '',
+        'apply_unit'      => 'per_item',
+        'discount_target' => 'setup_amount',
+        'min_items'       => 1,
+        'discount_type'   => 'amount',
+        'discount_value'  => 100000,
+        'base_fee'        => 200000,
+        'special_fee'     => 0,
+        'start_date'      => '2026-03-01',
+        'end_date'        => '2026-03-31',
+        'description'     => '기존 코웨이 렌탈 고객 재계약 시 등록비 10만원 할인 (3년·6년 약정 한정)',
+        'check_name'      => '재렌탈 등록비 할인',
+    ],
+    [
+        'promo_name'      => '패키지 15% 할인 (2대 이상)',
+        'target_category' => '',
+        'apply_unit'      => 'per_order',
+        'discount_target' => 'rent_amount',
+        'min_items'       => 2,
+        'discount_type'   => 'percent',
+        'discount_value'  => 15,
+        'base_fee'        => 200000,
+        'special_fee'     => 0,
+        'start_date'      => '2026-03-01',
+        'end_date'        => '2026-03-31',
+        'description'     => '2대 이상 동시 렌탈 시 전체 월 렌탈료 합계 15% 할인. 타사보상·선납·재렌탈 혜택과 중복 불가',
+        'check_name'      => '패키지 15% 할인 (2대 이상)',
+    ],
+    [
+        'promo_name'      => '패키지 3개월 추가 무료 (3대 이상)',
+        'target_category' => '',
+        'apply_unit'      => 'per_order',
+        'discount_target' => 'free_months',
+        'min_items'       => 3,
+        'discount_type'   => 'amount',
+        'discount_value'  => 3,
+        'base_fee'        => 200000,
+        'special_fee'     => 0,
+        'start_date'      => '2026-03-01',
+        'end_date'        => '2026-03-31',
+        'description'     => '3대 이상 동시 렌탈 시 3개월 추가 무료 (패키지 15% 할인과 택1)',
+        'check_name'      => '패키지 3개월 추가 무료 (3대 이상)',
+    ],
+];
+
+foreach ($promos as $pr) {
+    $exists = $db->query("SELECT uid FROM tndnjstl_promotion WHERE promo_name = '" . $db->real_escape_string($pr['promo_name']) . "' AND start_date = '{$pr['start_date']}' LIMIT 1");
+    if ($exists && $exists->num_rows > 0) {
+        echo "<p class='skip'>SKIP [{$pr['promo_name']}] 이미 존재</p>";
+        continue;
+    }
+    $tc   = $pr['target_category'] ? "'" . $db->real_escape_string($pr['target_category']) . "'" : 'NULL';
+    $desc = $db->real_escape_string($pr['description']);
+    $name = $db->real_escape_string($pr['promo_name']);
+    $r = $db->query("
+        INSERT INTO tndnjstl_promotion
+            (promo_name, target_category, apply_unit, discount_target, min_items,
+             discount_type, discount_value, base_fee, special_fee,
+             start_date, end_date, description, is_active, register_id)
+        VALUES
+            ('{$name}', {$tc}, '{$pr['apply_unit']}', '{$pr['discount_target']}', {$pr['min_items']},
+             '{$pr['discount_type']}', {$pr['discount_value']}, {$pr['base_fee']}, {$pr['special_fee']},
+             '{$pr['start_date']}', '{$pr['end_date']}', '{$desc}', 1, 'system')
+    ");
+    echo $r ? "<p class='ok'>OK [{$pr['promo_name']}] 등록 완료</p>" : "<p class='err'>ERR [{$pr['promo_name']}]: " . $db->error . "</p>";
+}
+
 echo "<hr><p>마이그레이션 완료. <strong>이 파일을 삭제해주세요.</strong> <a href='/'>홈으로 이동</a></p>";
 echo "</div></body></html>";
