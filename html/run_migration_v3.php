@@ -24,15 +24,56 @@ echo "<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>v3 마�
 echo "<style>body{font-family:sans-serif;padding:40px;background:#f0f2f5;}.card{background:#fff;border-radius:8px;padding:30px;max-width:700px;margin:auto;box-shadow:0 2px 12px rgba(0,0,0,.1);}h2{color:#1e40af;margin-bottom:20px;}p{margin:6px 0;font-size:14px;line-height:1.6;}.ok{color:#16a34a;}.err{color:#dc2626;}.skip{color:#94a3b8;}hr{margin:20px 0;}</style></head><body><div class='card'>";
 echo "<h2>v3 마이그레이션 - 구매자 프로모션</h2>";
 
+// 0. tndnjstl_promotion 기본 컬럼 보완 (target_category 등)
+$promo_base_cols = [
+    'target_category' => "VARCHAR(200) DEFAULT NULL",
+    'discount_type'   => "ENUM('amount','percent') NOT NULL DEFAULT 'amount'",
+    'discount_value'  => "INT NOT NULL DEFAULT 0",
+    'base_fee'        => "INT NOT NULL DEFAULT 200000",
+    'special_fee'     => "INT NOT NULL DEFAULT 0",
+    'start_date'      => "DATE NOT NULL DEFAULT (CURDATE())",
+    'end_date'        => "DATE NOT NULL DEFAULT (CURDATE())",
+    'description'     => "TEXT DEFAULT NULL",
+    'is_active'       => "TINYINT(1) NOT NULL DEFAULT 1",
+    'register_id'     => "VARCHAR(50) NOT NULL DEFAULT ''",
+    'register_date'   => "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+];
+if (table_exists($db, 'tndnjstl_promotion')) {
+    foreach ($promo_base_cols as $col => $def) {
+        if (!col_exists($db, 'tndnjstl_promotion', $col)) {
+            $r = $db->query("ALTER TABLE tndnjstl_promotion ADD COLUMN `{$col}` {$def}");
+            echo $r ? "<p class='ok'>OK promotion.{$col} 추가 완료</p>" : "<p class='err'>ERR promotion.{$col}: ".$db->error."</p>";
+        }
+    }
+} else {
+    $db->query("CREATE TABLE tndnjstl_promotion (
+        uid             INT          NOT NULL AUTO_INCREMENT,
+        promo_name      VARCHAR(200) NOT NULL,
+        target_category VARCHAR(200) DEFAULT NULL,
+        discount_type   ENUM('amount','percent') NOT NULL DEFAULT 'amount',
+        discount_value  INT          NOT NULL DEFAULT 0,
+        base_fee        INT          NOT NULL DEFAULT 200000,
+        special_fee     INT          NOT NULL DEFAULT 0,
+        start_date      DATE         NOT NULL,
+        end_date        DATE         NOT NULL,
+        description     TEXT         DEFAULT NULL,
+        is_active       TINYINT(1)   NOT NULL DEFAULT 1,
+        register_date   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        register_id     VARCHAR(50)  NOT NULL DEFAULT '',
+        PRIMARY KEY (uid)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    echo "<p class='ok'>OK tndnjstl_promotion 테이블 생성 완료</p>";
+}
+
 // 1. tndnjstl_promotion.apply_unit (건당/주문 전체)
 if (!col_exists($db, 'tndnjstl_promotion', 'apply_unit')) {
-    $r = $db->query("ALTER TABLE tndnjstl_promotion ADD COLUMN `apply_unit` ENUM('per_item','per_order') NOT NULL DEFAULT 'per_item' AFTER `target_category`");
+    $r = $db->query("ALTER TABLE tndnjstl_promotion ADD COLUMN `apply_unit` ENUM('per_item','per_order') NOT NULL DEFAULT 'per_item'");
     echo $r ? "<p class='ok'>OK promotion.apply_unit 추가 완료</p>" : "<p class='err'>ERR: ".$db->error."</p>";
 } else { echo "<p class='skip'>SKIP promotion.apply_unit 이미 존재</p>"; }
 
 // 2. tndnjstl_promotion.discount_target (할인 대상)
 if (!col_exists($db, 'tndnjstl_promotion', 'discount_target')) {
-    $r = $db->query("ALTER TABLE tndnjstl_promotion ADD COLUMN `discount_target` ENUM('rent_amount','setup_amount','free_months') NOT NULL DEFAULT 'rent_amount' AFTER `apply_unit`");
+    $r = $db->query("ALTER TABLE tndnjstl_promotion ADD COLUMN `discount_target` ENUM('rent_amount','setup_amount','free_months') NOT NULL DEFAULT 'rent_amount'");
     echo $r ? "<p class='ok'>OK promotion.discount_target 추가 완료</p>" : "<p class='err'>ERR: ".$db->error."</p>";
 } else { echo "<p class='skip'>SKIP promotion.discount_target 이미 존재</p>"; }
 
