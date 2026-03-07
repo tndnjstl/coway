@@ -31,7 +31,13 @@
 
 		<div class="container container-login animated fadeIn">
 		<form id="login_form" method="post" action="/Auth/loginProc">
+			<input type="hidden" name="next" value="<?= htmlspecialchars($_GET['next'] ?? '/', ENT_QUOTES) ?>">
 			<div class="login-form">
+				<?php if (($_GET['msg'] ?? '') === 'auth'): ?>
+				<div class="alert alert-warning py-2 small mb-3 text-center">
+					<i class="fas fa-lock me-1"></i>로그인이 필요한 서비스입니다.
+				</div>
+				<?php endif; ?>
 				<div class="form-sub">
 					<div class="form-floating form-floating-custom mb-3">
 						<input id="member_id" name="member_id" type="text" class="form-control" placeholder="아이디" required autocomplete="username" />

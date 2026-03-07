@@ -55,26 +55,29 @@ function error_log_m($data, $title = '')
 	error_log(str_repeat('=', 70) . PHP_EOL);
 }
 
-function alert($msg)
-{
-	echo "<script>alert('{$msg}');location.href = '/Auth/login';</script>";
-	exit;
-}
-
 function date_name_kr()
 {
 	$days = ['일', '월', '화', '수', '목', '금', '토'];
-	return $days[date('w')];	
+	return $days[date('w')];
 }
 
-function login_check($return=false)
+/**
+ * 로그인 체크 통합 함수
+ *
+ * - 세션 확인 → remember-me 쿠키 자동 복원 시도
+ * - $return=true 이면 bool 반환 (리다이렉트 없음)
+ * - 미인증 시:
+ *   - AJAX: JSON {ok:false, code:'UNAUTHORIZED', message, redirect} 반환
+ *   - 일반: /Auth/login?next=현재URL&msg=auth 리다이렉트
+ */
+function login_check(bool $return = false): bool
 {
-	// 세션이 있으면 통과
+	// 1) 세션 확인
 	if (isset($_SESSION['is_login']) && $_SESSION['is_login']) {
 		return true;
 	}
 
-	// 세션 없으면 remember-me 쿠키로 자동 복원 시도
+	// 2) remember-me 쿠키로 세션 복원 시도
 	if (!empty($_COOKIE['coway_remember'])) {
 		global $db_local;
 		$parts = explode('|', $_COOKIE['coway_remember'], 2);
@@ -86,7 +89,6 @@ function login_check($return=false)
 				$row   = $r->fetch_assoc();
 				$valid = hash('sha256', $row['member_id'] . '|' . $row['password'] . '|' . COOKIE_SECRET);
 				if (hash_equals($valid, $cookie_token)) {
-					// 토큰 유효 → 세션 복원
 					$_SESSION['is_login']  = true;
 					$_SESSION['member_id'] = $row['member_id'];
 					$_SESSION['info']      = $row;
@@ -94,15 +96,30 @@ function login_check($return=false)
 				}
 			}
 		}
-		// 유효하지 않은 쿠키 삭제
 		setcookie('coway_remember', '', ['expires' => time() - 3600, 'path' => '/']);
 	}
 
+	// 3) 미인증 처리
 	if ($return) {
 		return false;
 	}
 
-	alert('로그인 후 이용해주세요.');
+	$next     = urlencode($_SERVER['REQUEST_URI'] ?? '/');
+	$redirect = "/Auth/login?next={$next}&msg=auth";
+	$is_ajax  = strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest';
+
+	if ($is_ajax) {
+		header('Content-Type: application/json; charset=utf-8');
+		echo json_encode([
+			'ok'       => false,
+			'code'     => 'UNAUTHORIZED',
+			'message'  => '로그인이 필요합니다.',
+			'redirect' => $redirect,
+		]);
+		exit;
+	}
+
+	header("Location: {$redirect}");
 	exit;
 }
 

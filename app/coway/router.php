@@ -38,4 +38,11 @@ if (!method_exists($controller, $method)) {
 	exit;
 }
 
-$controller->$method();
+try {
+	$controller->$method();
+} catch (Throwable $e) {
+	http_response_code(500);
+	error_log('[500] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+	$error_message = $e->getMessage();
+	require VIEW_PATH . '/500.php';
+}

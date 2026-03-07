@@ -4,11 +4,11 @@ class AuthController
 	//로그인
 	public function login()
 	{
+		// 이미 로그인 상태면 메인으로
 		if (isset($_SESSION['is_login']) && $_SESSION['is_login']) {
 			header('Location: /');
 			exit;
 		}
-
 		include VIEW_PATH . '/login_view.php';
 	}
 
@@ -96,7 +96,10 @@ class AuthController
 			setcookie('coway_remember_flag', '', ['expires' => time() - 3600, 'path' => '/']);
 		}
 
-		header('Location: /');
+		// 직전 페이지로 이동 (next 파라미터, 외부 URL 차단)
+		$next = trim($_POST['next'] ?? '/');
+		if (!preg_match('/^\//', $next)) $next = '/';
+		header("Location: {$next}");
 		exit;
 	}
 
