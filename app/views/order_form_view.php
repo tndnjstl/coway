@@ -69,9 +69,24 @@
 					</div>
 				</div>
 
-				<!-- ③ 메모 -->
+				<!-- ③ 주문 혜택 (per_order 프로모션) -->
+				<div id="per_order_promos_section" style="display:none;" class="mb-4">
+					<div class="d-flex align-items-center mb-2">
+						<span class="badge bg-success me-2 fs-6">3</span>
+						<h5 class="mb-0 fw-bold">주문 혜택</h5>
+						<span class="ms-2 badge bg-light text-secondary border small">전체 주문 1회 적용</span>
+					</div>
+					<div class="card border-success border-opacity-50">
+						<div class="card-body p-3">
+							<div class="small text-muted mb-2">아래 혜택 중 하나를 선택하면 전체 렌탈료 합계에 적용됩니다.</div>
+							<div id="per_order_promos_list"></div>
+						</div>
+					</div>
+				</div>
+
+				<!-- ④ 메모 -->
 				<div class="d-flex align-items-center mb-2">
-					<span class="badge bg-primary me-2 fs-6">3</span>
+					<span class="badge bg-primary me-2 fs-6">4</span>
 					<h5 class="mb-0 fw-bold">메모</h5>
 				</div>
 				<div class="card mb-4">
@@ -80,9 +95,9 @@
 					</div>
 				</div>
 
-				<!-- ④ 합계 -->
+				<!-- ⑤ 합계 -->
 				<div class="d-flex align-items-center mb-2">
-					<span class="badge bg-primary me-2 fs-6">4</span>
+					<span class="badge bg-primary me-2 fs-6">5</span>
 					<h5 class="mb-0 fw-bold">합계</h5>
 				</div>
 				<div id="order_summary">

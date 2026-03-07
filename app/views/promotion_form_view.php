@@ -54,6 +54,39 @@
 
                   <div class="card bg-light border-0 mb-3">
                     <div class="card-body">
+                      <h6 class="fw-bold mb-3"><i class="fas fa-tag me-1 text-success"></i>구매자 할인 설정</h6>
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label fw-semibold">적용 단위 <span class="text-danger">*</span></label>
+                          <select name="apply_unit" class="form-select" id="apply_unit_select" onchange="toggle_min_items()">
+                            <option value="per_item"  <?= ($promo['apply_unit'] ?? 'per_item') === 'per_item'  ? 'selected' : '' ?>>건당 적용 (상품 1개당 각각)</option>
+                            <option value="per_order" <?= ($promo['apply_unit'] ?? '') === 'per_order' ? 'selected' : '' ?>>주문 전체 1회 (패키지 등)</option>
+                          </select>
+                          <div class="form-text">건당: 각 상품마다 적용 / 주문 전체: 선택 상품 합계에 1회 적용</div>
+                        </div>
+                        <div class="col-md-6" id="min_items_wrap" style="<?= ($promo['apply_unit'] ?? 'per_item') === 'per_order' ? '' : 'opacity:0.4;pointer-events:none;' ?>">
+                          <label class="form-label fw-semibold">최소 상품 수</label>
+                          <div class="input-group">
+                            <input type="number" name="min_items" class="form-control" min="1" max="99"
+                              value="<?= $promo['min_items'] ?? 1 ?>">
+                            <span class="input-group-text">대 이상</span>
+                          </div>
+                          <div class="form-text">패키지 적용 시 최소 수량 (기본 1)</div>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label fw-semibold">할인 대상 <span class="text-danger">*</span></label>
+                          <select name="discount_target" class="form-select">
+                            <option value="rent_amount"  <?= ($promo['discount_target'] ?? 'rent_amount') === 'rent_amount'  ? 'selected' : '' ?>>월 렌탈료 할인</option>
+                            <option value="setup_amount" <?= ($promo['discount_target'] ?? '') === 'setup_amount' ? 'selected' : '' ?>>등록비 할인</option>
+                            <option value="free_months"  <?= ($promo['discount_target'] ?? '') === 'free_months'  ? 'selected' : '' ?>>N개월 무료 (할인 값 = 개월 수)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card bg-light border-0 mb-3">
+                    <div class="card-body">
                       <h6 class="fw-bold mb-3"><i class="fas fa-coins me-1 text-warning"></i>영업비 설정</h6>
                       <div class="row g-3">
                         <div class="col-md-6">
@@ -127,4 +160,12 @@
 </div>
 
 <?php include VIEW_PATH . '/layouts/script.php'; ?>
+<script>
+function toggle_min_items() {
+  var val = document.getElementById('apply_unit_select').value;
+  var wrap = document.getElementById('min_items_wrap');
+  wrap.style.opacity = (val === 'per_order') ? '1' : '0.4';
+  wrap.style.pointerEvents = (val === 'per_order') ? 'auto' : 'none';
+}
+</script>
 <?php include VIEW_PATH . '/layouts/tail.php'; ?>

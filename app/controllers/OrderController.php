@@ -617,9 +617,11 @@ class OrderController
 			$customer_name  = trim($json['customer_name']  ?? '');
 			$customer_phone = trim($json['customer_phone'] ?? '');
 			$quote_email    = trim($json['quote_email']    ?? '');
-			$memo           = trim($json['memo']           ?? '');
-			$items          = $json['items'] ?? [];
-			$member_id      = $_SESSION['member_id'] ?? '';
+			$memo                = trim($json['memo']           ?? '');
+			$items               = $json['items'] ?? [];
+			$member_id           = $_SESSION['member_id'] ?? '';
+			$per_order_promo_uid = (int)($json['per_order_promo_uid'] ?? 0);
+			$per_order_discount  = (int)($json['per_order_discount']  ?? 0);
 
 			// 필수값 검증
 			if (!in_array($customer_type, ['P', 'B', 'C'])) {
@@ -645,14 +647,16 @@ class OrderController
 			// 주문 마스터 INSERT
 			$db_local->query("
 				INSERT INTO tndnjstl_order SET
-					customer_type  = '{$customer_type}',
-					customer_name  = '{$customer_name}',
-					customer_phone = '{$customer_phone}',
-					quote_email    = '{$quote_email}',
-					member_id      = '{$member_id}',
-					memo           = '{$memo}',
-					status         = 'prospect',
-					register_date  = NOW()
+					customer_type        = '{$customer_type}',
+					customer_name        = '{$customer_name}',
+					customer_phone       = '{$customer_phone}',
+					quote_email          = '{$quote_email}',
+					member_id            = '{$member_id}',
+					memo                 = '{$memo}',
+					per_order_promo_uid  = " . ($per_order_promo_uid ? $per_order_promo_uid : 'NULL') . ",
+					per_order_discount   = {$per_order_discount},
+					status               = 'prospect',
+					register_date        = NOW()
 			");
 
 			$order_uid = $db_local->insert_id;
@@ -670,39 +674,40 @@ class OrderController
 				$payment_type      = $db_local->real_escape_string($item['payment_type']      ?? 'rent');
 				$visit_cycle       = (int)($item['visit_cycle']       ?? 0);
 				$duty_year         = (int)($item['duty_year']         ?? 0);
-				$promo_a141        = (int)($item['promo_a141']        ?? 0);
-				$promo_a142        = (int)($item['promo_a142']        ?? 0);
-				$promo_a143        = (int)($item['promo_a143']        ?? 0);
-				$promo_a144        = (int)($item['promo_a144']        ?? 0);
-				$base_setup_price  = (int)($item['base_setup_price']  ?? 0);
-				$base_rent_price   = (int)($item['base_rent_price']   ?? 0);
-				$final_setup_price = (int)($item['final_setup_price'] ?? 0);
-				$final_rent_price  = (int)($item['final_rent_price']  ?? 0);
-				$normal_price      = (int)($item['normal_price']      ?? 0);
-				$total_pay         = (int)($item['total_pay']         ?? 0);
+				$customer_promos_raw     = $item['customer_promos'] ?? [];
+				$customer_promos_json    = $db_local->real_escape_string(json_encode($customer_promos_raw, JSON_UNESCAPED_UNICODE));
+				$customer_promo_discount = (int)($item['customer_promo_discount'] ?? 0);
+				$base_setup_price        = (int)($item['base_setup_price']       ?? 0);
+				$base_rent_price         = (int)($item['base_rent_price']        ?? 0);
+				$final_setup_price       = (int)($item['final_setup_price']      ?? 0);
+				$final_rent_price        = (int)($item['final_rent_price']       ?? 0);
+				$normal_price            = (int)($item['normal_price']           ?? 0);
+				$total_pay               = (int)($item['total_pay']              ?? 0);
 
 				$db_local->query("
 					INSERT INTO tndnjstl_order_item SET
-						order_uid         = {$order_uid},
-						model_uid         = '{$model_uid}',
-						model_name        = '{$model_name}',
-						model_no          = '{$model_no}',
-						model_color       = '{$model_color}',
-						category          = '{$category}',
-						payment_type      = '{$payment_type}',
-						visit_cycle       = {$visit_cycle},
-						duty_year         = {$duty_year},
-						promo_a141        = {$promo_a141},
-						promo_a142        = {$promo_a142},
-						promo_a143        = {$promo_a143},
-						promo_a144        = {$promo_a144},
-						base_setup_price  = {$base_setup_price},
-						base_rent_price   = {$base_rent_price},
-						final_setup_price = {$final_setup_price},
-						final_rent_price  = {$final_rent_price},
-						normal_price      = {$normal_price},
-						total_pay         = {$total_pay},
-						register_date     = NOW()
+						order_uid                = {$order_uid},
+						model_uid                = '{$model_uid}',
+						model_name               = '{$model_name}',
+						model_no                 = '{$model_no}',
+						model_color              = '{$model_color}',
+						category                 = '{$category}',
+						payment_type             = '{$payment_type}',
+						visit_cycle              = {$visit_cycle},
+						duty_year                = {$duty_year},
+						promo_a141               = 0,
+						promo_a142               = 0,
+						promo_a143               = 0,
+						promo_a144               = 0,
+						customer_promos          = '{$customer_promos_json}',
+						customer_promo_discount  = {$customer_promo_discount},
+						base_setup_price         = {$base_setup_price},
+						base_rent_price          = {$base_rent_price},
+						final_setup_price        = {$final_setup_price},
+						final_rent_price         = {$final_rent_price},
+						normal_price             = {$normal_price},
+						total_pay                = {$total_pay},
+						register_date            = NOW()
 				");
 			}
 

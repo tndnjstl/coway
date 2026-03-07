@@ -3,11 +3,32 @@
 /* =============================================================
  * 상태
  * ============================================================= */
-var all_products    = [];  // 전체 상품 캐시
-var selected_models = {};  // 선택된 상품 { uid: {...} }
-var active_category = '';  // 현재 카테고리 필터
+var all_products       = [];   // 전체 상품 캐시
+var selected_models    = {};   // 선택된 상품 { uid: {...} }
+var active_category    = '';   // 현재 카테고리 필터
+var db_promotions      = [];   // DB 활성 프로모션 목록
+var per_order_promo_uid = null; // 선택된 per_order 프로모션 uid (1개)
 
 var product_modal = new bootstrap.Modal(document.getElementById('modal-product-search'));
+
+/* =============================================================
+ * 초기화 - 프로모션 로드
+ * ============================================================= */
+$(function() {
+	load_promotions();
+});
+
+function load_promotions() {
+	$.ajax({
+		url: '/Promotion/activeList',
+		method: 'GET',
+		dataType: 'json',
+		success: function(res) {
+			db_promotions = res || [];
+			render_per_order_section();
+		}
+	});
+}
 
 /* =============================================================
  * 모달 열기 / 상품 로드
@@ -153,10 +174,10 @@ function append_selected_model(item) {
 		setup_price:      Number(item.setup_price)  || 0,
 		rent_price:       Number(item.rent_price)   || 0,
 		normal_price:     Number(item.normal_price) || 0,
-		payment_type:     'rent',  // 'rent' | 'buy'
+		payment_type:     'rent',
 		visit_cycle:      '4',
 		duty_year:        '3',
-		promotions: { A141: false, A142: false, A143: false, A144: false }
+		customer_promos:  []   // per_item 프로모션 uid 배열
 	};
 
 	if ($('#model_list').find('.text-center.text-muted').length > 0) {
@@ -164,12 +185,21 @@ function append_selected_model(item) {
 	}
 
 	render_selected_model_card(item.uid);
+	render_per_order_section();
 	render_order_summary();
 }
 
 /* =============================================================
- * 가격 계산
+ * 가격 계산 (per_item 프로모션 반영)
  * ============================================================= */
+function find_promo(uid) {
+	var found = null;
+	$.each(db_promotions, function(_, p) {
+		if (String(p.uid) === String(uid)) { found = p; return false; }
+	});
+	return found;
+}
+
 function get_model_pricing(m) {
 	if (m.payment_type === 'buy') {
 		return { payment_type: 'buy', normal_price: m.normal_price, total_pay: m.normal_price };
@@ -179,15 +209,32 @@ function get_model_pricing(m) {
 	var base_rent  = m.rent_price;
 
 	var rent_discount  = 0;
-	if (m.promotions.A141) rent_discount += 6000;
-	if (m.promotions.A142) rent_discount += Math.floor(base_rent * 0.10);
+	var setup_discount = 0;
+	var free_month     = 0;
 
-	var setup_discount = m.promotions.A143 ? base_setup : 0;
-	var final_setup    = Math.max(0, base_setup - setup_discount);
-	var final_rent     = Math.max(0, base_rent  - rent_discount);
+	// per_item 프로모션 적용
+	$.each(m.customer_promos, function(_, promo_uid) {
+		var pr = find_promo(promo_uid);
+		if (!pr) return;
+
+		var val = Number(pr.discount_value);
+		if (pr.discount_target === 'rent_amount') {
+			if (pr.discount_type === 'amount')  rent_discount += val;
+			else                                rent_discount += Math.floor(base_rent * val / 100);
+		} else if (pr.discount_target === 'setup_amount') {
+			if (pr.discount_type === 'amount')  setup_discount += val;
+			else                                setup_discount += Math.floor(base_setup * val / 100);
+		} else if (pr.discount_target === 'free_months') {
+			free_month += val;
+		}
+	});
+
+	setup_discount = Math.min(setup_discount, base_setup);  // 전액 면제 상한
+	var final_setup = Math.max(0, base_setup - setup_discount);
+	var final_rent  = Math.max(0, base_rent  - rent_discount);
 
 	var contract_month      = Number(m.duty_year) * 12;
-	var free_month          = m.promotions.A144 ? Math.min(3, contract_month) : 0;
+	free_month              = Math.min(free_month, contract_month);
 	var contract_rent_total = Math.max(0, final_rent * (contract_month - free_month));
 	var total_pay           = final_setup + contract_rent_total;
 
@@ -200,6 +247,30 @@ function get_model_pricing(m) {
 }
 
 /* =============================================================
+ * 프로모션 배지 텍스트 생성
+ * ============================================================= */
+function get_promo_badge(pr) {
+	var val = Number(pr.discount_value);
+	if (pr.discount_target === 'free_months') {
+		return '<span class="badge bg-success ms-1">' + val + '개월 무료</span>';
+	} else if (pr.discount_target === 'setup_amount') {
+		if (pr.discount_type === 'amount' && val === 0) {
+			return '<span class="badge bg-warning text-dark ms-1">등록비 전액 면제</span>';
+		} else if (pr.discount_type === 'amount') {
+			return '<span class="badge bg-warning text-dark ms-1">등록비 -' + number_format(val) + '원</span>';
+		} else {
+			return '<span class="badge bg-warning text-dark ms-1">등록비 ' + val + '% 할인</span>';
+		}
+	} else {
+		if (pr.discount_type === 'amount') {
+			return '<span class="badge bg-primary ms-1">월 -' + number_format(val) + '원</span>';
+		} else {
+			return '<span class="badge bg-primary ms-1">렌탈료 ' + val + '% 할인</span>';
+		}
+	}
+}
+
+/* =============================================================
  * 선택된 상품 카드 렌더링
  * ============================================================= */
 function render_selected_model_card(uid) {
@@ -208,6 +279,13 @@ function render_selected_model_card(uid) {
 
 	var p       = get_model_pricing(m);
 	var is_rent = (m.payment_type === 'rent');
+
+	// 이 상품에 적용 가능한 per_item 프로모션
+	var item_promos = db_promotions.filter(function(pr) {
+		if (pr.apply_unit !== 'per_item') return false;
+		if (pr.target_category && pr.target_category !== m.category) return false;
+		return true;
+	});
 
 	var html = '';
 	html += '<div class="card mb-3" data-model-uid="' + uid + '">';
@@ -259,23 +337,26 @@ function render_selected_model_card(uid) {
 		html += '      </div>';
 		html += '    </div>';
 
-		/* 프로모션 */
+		/* 구매자 프로모션 (DB 연동) */
 		html += '    <div class="border rounded p-2 mb-3" style="background:#f8f9fa;">';
-		html += '      <div class="small fw-bold mb-2 text-secondary">프로모션</div>';
-		var promos = [
-			{ code: 'A141', label: '렌탈료 약정 할인 (월 -6,000원)' },
-			{ code: 'A142', label: '렌탈료 10% 할인' },
-			{ code: 'A143', label: '설치비 전액 면제' },
-			{ code: 'A144', label: '렌탈료 3개월 무료' }
-		];
-		$.each(promos, function(_, pr) {
-			var chk = m.promotions[pr.code] ? 'checked' : '';
-			var id  = 'promo_' + pr.code.toLowerCase() + '_' + uid;
-			html += '<div class="form-check mb-1">';
-			html += '  <input class="form-check-input promo-check" type="checkbox" value="' + pr.code + '" data-model-uid="' + uid + '" id="' + id + '" ' + chk + '>';
-			html += '  <label class="form-check-label small" for="' + id + '">' + pr.label + '</label>';
-			html += '</div>';
-		});
+		html += '      <div class="small fw-bold mb-2 text-secondary"><i class="fas fa-gift me-1 text-success"></i>고객 혜택</div>';
+		if (item_promos.length === 0) {
+			html += '      <div class="small text-muted">현재 적용 가능한 혜택이 없습니다.</div>';
+		} else {
+			$.each(item_promos, function(_, pr) {
+				var checked = (m.customer_promos.indexOf(String(pr.uid)) !== -1) ? 'checked' : '';
+				var id      = 'cpromo_' + pr.uid + '_' + uid;
+				html += '<div class="form-check mb-1">';
+				html += '  <input class="form-check-input customer-promo-check" type="checkbox" value="' + pr.uid + '" data-model-uid="' + uid + '" id="' + id + '" ' + checked + '>';
+				html += '  <label class="form-check-label small" for="' + id + '">';
+				html += escape_html(pr.promo_name) + ' ' + get_promo_badge(pr);
+				if (pr.description) {
+					html += '<div class="text-muted" style="font-size:11px;">' + escape_html(pr.description) + '</div>';
+				}
+				html += '  </label>';
+				html += '</div>';
+			});
+		}
 		html += '    </div>';
 
 		/* 렌탈 가격 요약 */
@@ -315,6 +396,56 @@ function render_selected_model_card(uid) {
 }
 
 /* =============================================================
+ * per_order 프로모션 섹션 렌더링
+ * ============================================================= */
+function render_per_order_section() {
+	var item_count = Object.keys(selected_models).length;
+	var rent_count = 0;
+	$.each(selected_models, function(_, m) {
+		if (m.payment_type === 'rent') rent_count++;
+	});
+
+	var order_promos = db_promotions.filter(function(pr) {
+		return pr.apply_unit === 'per_order' && rent_count >= Number(pr.min_items || 1);
+	});
+
+	var $section = $('#per_order_promos_section');
+	if (order_promos.length === 0 || rent_count === 0) {
+		$section.hide();
+		per_order_promo_uid = null;
+		render_order_summary();
+		return;
+	}
+
+	$section.show();
+
+	var html = '';
+	html += '<div class="form-check mb-2">';
+	html += '  <input class="form-check-input per-order-promo-radio" type="radio" name="per_order_promo" value="" id="order_promo_none" ' + (!per_order_promo_uid ? 'checked' : '') + '>';
+	html += '  <label class="form-check-label text-muted" for="order_promo_none">적용 안 함</label>';
+	html += '</div>';
+
+	$.each(order_promos, function(_, pr) {
+		var checked = (String(per_order_promo_uid) === String(pr.uid)) ? 'checked' : '';
+		var id      = 'order_promo_' + pr.uid;
+		html += '<div class="form-check mb-2">';
+		html += '  <input class="form-check-input per-order-promo-radio" type="radio" name="per_order_promo" value="' + pr.uid + '" id="' + id + '" ' + checked + '>';
+		html += '  <label class="form-check-label" for="' + id + '">';
+		html += '    <span class="fw-bold">' + escape_html(pr.promo_name) + '</span> ' + get_promo_badge(pr);
+		if (Number(pr.min_items) > 1) {
+			html += ' <span class="badge bg-secondary">' + pr.min_items + '대 이상</span>';
+		}
+		if (pr.description) {
+			html += '<div class="text-muted small">' + escape_html(pr.description) + '</div>';
+		}
+		html += '  </label>';
+		html += '</div>';
+	});
+
+	$('#per_order_promos_list').html(html);
+}
+
+/* =============================================================
  * 상품 삭제
  * ============================================================= */
 function remove_model(uid) {
@@ -329,11 +460,12 @@ function remove_model(uid) {
 			'</div>'
 		);
 	}
+	render_per_order_section();
 	render_order_summary();
 }
 
 /* =============================================================
- * 합계 렌더링
+ * 합계 렌더링 (per_order 할인 반영)
  * ============================================================= */
 function render_order_summary() {
 	var total_setup         = 0;
@@ -357,12 +489,31 @@ function render_order_summary() {
 	});
 
 	var count     = rent_count + buy_count;
-	var total_pay = total_setup + total_contract_rent + total_buy;
 
 	if (count === 0) {
 		$('#order_summary').html('<div class="card"><div class="card-body text-center text-muted py-4">상품을 선택하면 합계가 표시됩니다.</div></div>');
 		return;
 	}
+
+	// per_order 프로모션 할인 계산
+	var order_promo          = per_order_promo_uid ? find_promo(per_order_promo_uid) : null;
+	var order_promo_discount = 0;
+	var order_promo_name     = '';
+
+	if (order_promo && rent_count > 0) {
+		order_promo_name = order_promo.promo_name;
+		var val = Number(order_promo.discount_value);
+		if (order_promo.discount_target === 'rent_amount') {
+			if (order_promo.discount_type === 'amount')  order_promo_discount = val * rent_count;
+			else                                         order_promo_discount = Math.floor(total_monthly_rent * val / 100);
+		} else if (order_promo.discount_target === 'setup_amount') {
+			if (order_promo.discount_type === 'amount')  order_promo_discount = val * rent_count;
+			else                                         order_promo_discount = Math.floor(total_setup * val / 100);
+		}
+		// free_months는 summary에서 별도 표시 (금액 환산 불가)
+	}
+
+	var total_pay = total_setup + total_contract_rent + total_buy;
 
 	var html = '';
 	html += '<div class="card">';
@@ -376,7 +527,13 @@ function render_order_summary() {
 	if (buy_count > 0) {
 		html += '    <div class="small d-flex justify-content-between mb-1"><span class="text-muted">일시불 합계</span><span>' + number_format(total_buy) + '원</span></div>';
 	}
-	html += '    <div class="fw-bold fs-6 d-flex justify-content-between border-top pt-2 mt-1"><span>총 납부 예상액</span><span class="text-primary">' + number_format(total_pay) + '원</span></div>';
+	if (order_promo_discount > 0) {
+		html += '    <div class="small d-flex justify-content-between mb-1 text-success"><span><i class="fas fa-tag me-1"></i>' + escape_html(order_promo_name) + '</span><span>-' + number_format(order_promo_discount) + '원</span></div>';
+		total_pay -= order_promo_discount;
+	} else if (order_promo && order_promo.discount_target === 'free_months') {
+		html += '    <div class="small text-success mb-1"><i class="fas fa-tag me-1"></i>' + escape_html(order_promo_name) + ': ' + order_promo.discount_value + '개월 무료 적용</div>';
+	}
+	html += '    <div class="fw-bold fs-6 d-flex justify-content-between border-top pt-2 mt-1"><span>총 납부 예상액</span><span class="text-primary">' + number_format(Math.max(0, total_pay)) + '원</span></div>';
 	html += '  </div>';
 	html += '</div>';
 
@@ -402,6 +559,7 @@ $(document).on('click', '.payment-toggle', function() {
 	if (!selected_models[uid]) return;
 	selected_models[uid].payment_type = type;
 	render_selected_model_card(uid);
+	render_per_order_section();
 	render_order_summary();
 });
 
@@ -421,12 +579,27 @@ $(document).on('change', '.duty-year-select', function() {
 	render_order_summary();
 });
 
-$(document).on('change', '.promo-check', function() {
-	var uid  = $(this).data('model-uid');
-	var code = $(this).val();
-	if (!selected_models[uid] || !selected_models[uid].promotions.hasOwnProperty(code)) return;
-	selected_models[uid].promotions[code] = $(this).is(':checked');
+// per_item 프로모션 체크박스
+$(document).on('change', '.customer-promo-check', function() {
+	var uid       = String($(this).data('model-uid'));
+	var promo_uid = String($(this).val());
+	if (!selected_models[uid]) return;
+
+	var arr   = selected_models[uid].customer_promos;
+	var idx   = arr.indexOf(promo_uid);
+	if ($(this).is(':checked')) {
+		if (idx === -1) arr.push(promo_uid);
+	} else {
+		if (idx !== -1) arr.splice(idx, 1);
+	}
 	render_selected_model_card(uid);
+	render_order_summary();
+});
+
+// per_order 프로모션 라디오
+$(document).on('change', '.per-order-promo-radio', function() {
+	var val = $(this).val();
+	per_order_promo_uid = val ? Number(val) : null;
 	render_order_summary();
 });
 
@@ -445,28 +618,49 @@ function save_order() {
 	if (!customer_phone) { alert('휴대폰 번호를 입력해주세요.'); $('#customer_phone').focus(); return; }
 	if (Object.keys(selected_models).length === 0) { alert('상품을 1개 이상 선택해주세요.'); return; }
 
+	// per_order 할인 계산
+	var order_promo          = per_order_promo_uid ? find_promo(per_order_promo_uid) : null;
+	var order_promo_discount = 0;
+	if (order_promo) {
+		var total_monthly_rent_sum = 0;
+		var total_setup_sum = 0;
+		var rent_count_sum  = 0;
+		$.each(selected_models, function(_, m) {
+			var p = get_model_pricing(m);
+			if (p.payment_type === 'rent') {
+				total_monthly_rent_sum += p.final_rent;
+				total_setup_sum        += p.final_setup;
+				rent_count_sum++;
+			}
+		});
+		var val = Number(order_promo.discount_value);
+		if (order_promo.discount_target === 'rent_amount') {
+			order_promo_discount = (order_promo.discount_type === 'amount') ? val * rent_count_sum : Math.floor(total_monthly_rent_sum * val / 100);
+		} else if (order_promo.discount_target === 'setup_amount') {
+			order_promo_discount = (order_promo.discount_type === 'amount') ? val * rent_count_sum : Math.floor(total_setup_sum * val / 100);
+		}
+	}
+
 	var items = [];
 	$.each(selected_models, function(uid, m) {
 		var p = get_model_pricing(m);
 		var item = {
-			model_uid:         m.uid,
-			model_name:        m.model_name,
-			model_no:          m.model_no,
-			model_color:       m.model_color,
-			category:          m.category,
-			payment_type:      m.payment_type,
-			visit_cycle:       m.payment_type === 'rent' ? Number(m.visit_cycle) : 0,
-			duty_year:         m.payment_type === 'rent' ? Number(m.duty_year)   : 0,
-			promo_a141:        m.promotions.A141 ? 1 : 0,
-			promo_a142:        m.promotions.A142 ? 1 : 0,
-			promo_a143:        m.promotions.A143 ? 1 : 0,
-			promo_a144:        m.promotions.A144 ? 1 : 0,
-			base_setup_price:  p.payment_type === 'rent' ? (p.base_setup  || 0) : 0,
-			base_rent_price:   p.payment_type === 'rent' ? (p.base_rent   || 0) : 0,
-			final_setup_price: p.payment_type === 'rent' ? (p.final_setup || 0) : 0,
-			final_rent_price:  p.payment_type === 'rent' ? (p.final_rent  || 0) : 0,
-			normal_price:      p.payment_type === 'buy'  ? p.normal_price        : 0,
-			total_pay:         p.total_pay || 0
+			model_uid:              m.uid,
+			model_name:             m.model_name,
+			model_no:               m.model_no,
+			model_color:            m.model_color,
+			category:               m.category,
+			payment_type:           m.payment_type,
+			visit_cycle:            m.payment_type === 'rent' ? Number(m.visit_cycle) : 0,
+			duty_year:              m.payment_type === 'rent' ? Number(m.duty_year)   : 0,
+			customer_promos:        m.customer_promos,
+			customer_promo_discount: p.payment_type === 'rent' ? (p.rent_discount + p.setup_discount) : 0,
+			base_setup_price:       p.payment_type === 'rent' ? (p.base_setup  || 0) : 0,
+			base_rent_price:        p.payment_type === 'rent' ? (p.base_rent   || 0) : 0,
+			final_setup_price:      p.payment_type === 'rent' ? (p.final_setup || 0) : 0,
+			final_rent_price:       p.payment_type === 'rent' ? (p.final_rent  || 0) : 0,
+			normal_price:           p.payment_type === 'buy'  ? p.normal_price        : 0,
+			total_pay:              p.total_pay || 0
 		};
 		items.push(item);
 	});
@@ -480,12 +674,14 @@ function save_order() {
 		contentType: 'application/json',
 		dataType: 'json',
 		data: JSON.stringify({
-			customer_type:  customer_type,
-			customer_name:  customer_name,
-			customer_phone: customer_phone,
-			quote_email:    quote_email,
-			memo:           memo,
-			items:          items
+			customer_type:        customer_type,
+			customer_name:        customer_name,
+			customer_phone:       customer_phone,
+			quote_email:          quote_email,
+			memo:                 memo,
+			per_order_promo_uid:  per_order_promo_uid || 0,
+			per_order_discount:   order_promo_discount,
+			items:                items
 		}),
 		success: function(res) {
 			if (res.status === 'success') {
@@ -496,15 +692,17 @@ function save_order() {
 				$('#customer_phone').val('');
 				$('#quote_email').val('');
 				$('#order_memo').val('');
-				selected_models = {};
-				all_products    = [];
-				active_category = '';
+				selected_models     = {};
+				all_products        = [];
+				active_category     = '';
+				per_order_promo_uid = null;
 				$('#model_list').html(
 					'<div class="text-center text-muted py-5">' +
 					'<i class="fas fa-box-open fa-2x mb-2 d-block"></i>' +
 					'상단 [상품 추가] 버튼을 눌러 상품을 추가해주세요.' +
 					'</div>'
 				);
+				$('#per_order_promos_section').hide();
 				render_order_summary();
 			} else {
 				alert(res.message || '저장에 실패했습니다.');
