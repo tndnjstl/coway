@@ -21,8 +21,25 @@ date_default_timezone_set('Asia/Seoul');
 define('BASE_PATH', dirname(__DIR__));
 define('APP_PATH', BASE_PATH . '/app');
 define('HELPER_PATH', APP_PATH . '/helpers');
-define('CONTROLLER_PATH', APP_PATH . '/controllers');
-define('VIEW_PATH', APP_PATH . '/views');
+
+/*
+|--------------------------------------------------------------------------
+| 서비스 분기
+|--------------------------------------------------------------------------
+*/
+$_uri_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$_first_segment = explode('/', trim($_uri_path, '/'))[0];
+
+if ($_first_segment === 'auction') {
+	define('CURRENT_SERVICE', 'auction');
+	define('SERVICE_PATH', APP_PATH . '/auction');
+} else {
+	define('CURRENT_SERVICE', 'coway');
+	define('SERVICE_PATH', APP_PATH . '/coway');
+}
+
+define('CONTROLLER_PATH', SERVICE_PATH . '/controllers');
+define('VIEW_PATH', SERVICE_PATH . '/views');
 
 /*
 |--------------------------------------------------------------------------
@@ -84,4 +101,4 @@ if( $_SERVER['REQUEST_URI'] === '/product.php' ) {
 		exit;
 	}
 }
-require_once APP_PATH . '/router.php';
+require_once SERVICE_PATH . '/router.php';

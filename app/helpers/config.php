@@ -3,7 +3,7 @@
 define('COOKIE_SECRET', 'coway_rm_2024!@#$%^secure');
 
 // 지도 API 설정
-define('KAKAO_MAP_KEY', '');    // 카카오맵 JavaScript API 키
+define('KAKAO_MAP_KEY', 'eaac31d68923d85c124e197c0bb4c187');    // 카카오맵 JavaScript API 키
 define('NAVER_MAP_CLIENT', ''); // 네이버맵 Client ID
 
 // 파일 업로드 경로

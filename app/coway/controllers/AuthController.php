@@ -4,6 +4,11 @@ class AuthController
 	//로그인
 	public function login()
 	{
+		if (isset($_SESSION['is_login']) && $_SESSION['is_login']) {
+			header('Location: /');
+			exit;
+		}
+
 		include VIEW_PATH . '/login_view.php';
 	}
 
