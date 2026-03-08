@@ -20,7 +20,6 @@ date_default_timezone_set('Asia/Seoul');
 */
 define('BASE_PATH', dirname(__DIR__));
 define('APP_PATH', BASE_PATH . '/app');
-define('HELPER_PATH', APP_PATH . '/helpers');
 
 /*
 |--------------------------------------------------------------------------
@@ -38,6 +37,7 @@ if ($_first_segment === 'auction') {
 	define('SERVICE_PATH', APP_PATH . '/coway');
 }
 
+define('HELPER_PATH', SERVICE_PATH . '/helpers');
 define('CONTROLLER_PATH', SERVICE_PATH . '/controllers');
 define('VIEW_PATH', SERVICE_PATH . '/views');
 
@@ -80,9 +80,9 @@ spl_autoload_register(function ($class) {
 });
 
 //공통파일
-require_once APP_PATH . '/helpers/config.php';
-require_once APP_PATH . '/helpers/common_db.php';
-require_once APP_PATH . '/helpers/common_function.php';
+require_once HELPER_PATH . '/config.php';
+require_once HELPER_PATH . '/common_db.php';
+require_once HELPER_PATH . '/common_function.php';
 
 /*
 |--------------------------------------------------------------------------
