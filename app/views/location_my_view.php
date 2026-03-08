@@ -1,3 +1,7 @@
+<?php
+// header.php에서 <head> 안에 카카오맵 SDK를 주입하도록 플래그 설정
+$load_kakao_maps = true;
+?>
 <?php include APP_PATH . '/views/layouts/head.php'; ?>
 <?php include APP_PATH . '/views/layouts/header.php'; ?>
 
@@ -124,32 +128,23 @@
 
 <?php include APP_PATH . '/views/layouts/script.php'; ?>
 <script src="/assets/js/location-tracker.js"></script>
-<?php if (KAKAO_MAP_KEY): ?>
-<script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=<?= htmlspecialchars(KAKAO_MAP_KEY) ?>&libraries=services"></script>
-<?php endif; ?>
 <script>
 $(function () {
-	const todayDate = '<?= htmlspecialchars($date ?? date('Y-m-d')) ?>';
+	const todayDate  = '<?= htmlspecialchars($date ?? date('Y-m-d')) ?>';
 	const myMemberId = '<?= htmlspecialchars($_SESSION['member_id'] ?? '') ?>';
-	const hasMapKey = <?= KAKAO_MAP_KEY ? 'true' : 'false' ?>;
+	const hasMapKey  = <?= KAKAO_MAP_KEY ? 'true' : 'false' ?>;
 
-	let map = null;
+	let map      = null;
 	let polyline = null;
 
-	// ── 카카오맵 초기화 ──
+	// ── 카카오맵 초기화 (autoload=false이므로 kakao.maps.load 필수) ──
 	if (hasMapKey) {
 		kakao.maps.load(function () {
-			const container = document.getElementById('map');
-			const options = {
+			map = new kakao.maps.Map(document.getElementById('map'), {
 				center: new kakao.maps.LatLng(37.5665, 126.9780),
 				level: 7,
-			};
-			map = new kakao.maps.Map(container, options);
-
-			// 오늘 경로 로드
-			if (todayDate === '<?= date('Y-m-d') ?>' || true) {
-				loadRoute(myMemberId, todayDate);
-			}
+			});
+			loadRoute(myMemberId, todayDate);
 		});
 	}
 
@@ -157,14 +152,12 @@ $(function () {
 		$.get('/Location/getRoute', { member_id: memberId, date: date }, function (res) {
 			if (!res.success || res.points.length === 0) return;
 
-			const path = res.points.map(function (p) {
+			var path = res.points.map(function (p) {
 				return new kakao.maps.LatLng(p.lat, p.lng);
 			});
 
-			// 기존 폴리라인 제거
 			if (polyline) polyline.setMap(null);
 
-			// 경로 표시
 			polyline = new kakao.maps.Polyline({
 				path: path,
 				strokeWeight: 4,
@@ -174,40 +167,23 @@ $(function () {
 			});
 			polyline.setMap(map);
 
-			// 시작 마커 (초록)
-			new kakao.maps.Marker({
-				position: path[0],
-				map: map,
-				title: '시작',
-			});
+			new kakao.maps.Marker({ position: path[0],              map: map, title: '시작' });
+			new kakao.maps.Marker({ position: path[path.length - 1], map: map, title: '현재' });
 
-			// 현재/종료 마커 (빨강)
-			new kakao.maps.Marker({
-				position: path[path.length - 1],
-				map: map,
-				title: '현재',
-			});
-
-			// 지도 범위 조정
-			const bounds = new kakao.maps.LatLngBounds();
+			var bounds = new kakao.maps.LatLngBounds();
 			path.forEach(function (p) { bounds.extend(p); });
 			map.setBounds(bounds);
 		}, 'json');
 	}
 
-	// ── 위치 추적 토글 ──
+	// ── 위치 추적 토글 UI ──
 	function setTrackingUI(active) {
 		$('#tracking-toggle').prop('checked', active);
-		if (active) {
-			$('#tracking-indicator').css('background', '#28a745');
-			$('#tracking-text').text('추적 중');
-		} else {
-			$('#tracking-indicator').css('background', '#aaa');
-			$('#tracking-text').text('추적 꺼짐');
-		}
+		$('#tracking-indicator').css('background', active ? '#28a745' : '#aaa');
+		$('#tracking-text').text(active ? '추적 중' : '추적 꺼짐');
 	}
 
-	// 페이지 로드 시 상태 확인
+	// 페이지 로드 시 추적 상태 확인
 	LocationTracker.checkStatus(function (tracking) {
 		setTrackingUI(tracking);
 	});
@@ -215,18 +191,12 @@ $(function () {
 	$('#tracking-toggle').on('change', function () {
 		if ($(this).is(':checked')) {
 			LocationTracker.start(
-				function (sessionUid) {
-					setTrackingUI(true);
-				},
-				function (err) {
-					alert(err);
-					setTrackingUI(false);
-				}
+				function () { setTrackingUI(true); },
+				function (err) { alert(err); setTrackingUI(false); }
 			);
 		} else {
-			LocationTracker.stop(function (res) {
+			LocationTracker.stop(function () {
 				setTrackingUI(false);
-				// 경로 새로고침
 				if (hasMapKey) loadRoute(myMemberId, todayDate);
 			});
 		}

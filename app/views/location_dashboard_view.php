@@ -1,3 +1,7 @@
+<?php
+// header.php에서 <head> 안에 카카오맵 SDK를 주입하도록 플래그 설정
+$load_kakao_maps = true;
+?>
 <?php include APP_PATH . '/views/layouts/head.php'; ?>
 <?php include APP_PATH . '/views/layouts/header.php'; ?>
 
@@ -90,9 +94,6 @@
 
 <?php include APP_PATH . '/views/layouts/script.php'; ?>
 <script src="/assets/js/location-tracker.js"></script>
-<?php if (KAKAO_MAP_KEY): ?>
-<script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=<?= htmlspecialchars(KAKAO_MAP_KEY) ?>&libraries=services"></script>
-<?php endif; ?>
 <script>
 $(function () {
 	const selectedDate = '<?= htmlspecialchars($date ?? date('Y-m-d')) ?>';

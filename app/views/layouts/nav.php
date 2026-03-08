@@ -52,17 +52,20 @@
 
 <?php if (isset($_SESSION['is_login']) && $_SESSION['is_login']): ?>
 <script>
-// 페이지 로드 시 위치 추적 상태 확인 (비동기, 조용히)
-$(function () {
-	$.get('/Location/trackingStatus', function (res) {
-		if (res && res.tracking) {
-			var dot = document.getElementById('nav-tracking-dot');
-			if (dot) {
-				dot.style.background = '#28a745';
-				dot.style.animation  = 'navDotPulse 1.5s infinite';
+// jQuery 의존성 없이 DOMContentLoaded + fetch 사용 (jQuery 로드 전에 실행되므로)
+document.addEventListener('DOMContentLoaded', function () {
+	fetch('/Location/trackingStatus')
+		.then(function (r) { return r.json(); })
+		.then(function (res) {
+			if (res && res.tracking) {
+				var dot = document.getElementById('nav-tracking-dot');
+				if (dot) {
+					dot.style.background = '#28a745';
+					dot.style.animation  = 'navDotPulse 1.5s infinite';
+				}
 			}
-		}
-	}, 'json').fail(function () { /* 조용히 실패 */ });
+		})
+		.catch(function () { /* 조용히 실패 */ });
 });
 </script>
 <style>
