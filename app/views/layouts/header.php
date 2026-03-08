@@ -27,8 +27,8 @@
 	<link rel="stylesheet" href="/assets/css/demo.css">
 
 	<?php if (!empty($load_kakao_maps) && defined('KAKAO_MAP_KEY') && KAKAO_MAP_KEY): ?>
-	<!-- 카카오맵 SDK (지도 페이지에서만 로드) -->
-	<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=<?= htmlspecialchars(KAKAO_MAP_KEY) ?>&autoload=false&libraries=services"></script>
+	<!-- 카카오맵 SDK 동기 로드 (autoload=false 없이 즉시 사용 가능) -->
+	<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=<?= htmlspecialchars(KAKAO_MAP_KEY) ?>&libraries=services"></script>
 	<?php endif; ?>
 </head>
 <body>

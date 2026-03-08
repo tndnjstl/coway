@@ -105,12 +105,10 @@ $(function () {
 	let polylines  = {};  // member_id → kakao.maps.Polyline
 	let map        = null;
 
-	if (hasMapKey) {
-		kakao.maps.load(function () {
-			map = new kakao.maps.Map(document.getElementById('map'), {
-				center: new kakao.maps.LatLng(37.5665, 126.9780),
-				level: 8,
-			});
+	if (hasMapKey && typeof kakao !== 'undefined') {
+		map = new kakao.maps.Map(document.getElementById('map'), {
+			center: new kakao.maps.LatLng(37.5665, 126.9780),
+			level: 8,
 		});
 	}
 

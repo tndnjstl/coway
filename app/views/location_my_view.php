@@ -137,15 +137,13 @@ $(function () {
 	let map      = null;
 	let polyline = null;
 
-	// ── 카카오맵 초기화 (autoload=false이므로 kakao.maps.load 필수) ──
-	if (hasMapKey) {
-		kakao.maps.load(function () {
-			map = new kakao.maps.Map(document.getElementById('map'), {
-				center: new kakao.maps.LatLng(37.5665, 126.9780),
-				level: 7,
-			});
-			loadRoute(myMemberId, todayDate);
+	// ── 카카오맵 초기화 (동기 로드: kakao.maps.Map 직접 사용) ──
+	if (hasMapKey && typeof kakao !== 'undefined') {
+		map = new kakao.maps.Map(document.getElementById('map'), {
+			center: new kakao.maps.LatLng(37.5665, 126.9780),
+			level: 7,
 		});
+		loadRoute(myMemberId, todayDate);
 	}
 
 	function loadRoute(memberId, date) {
