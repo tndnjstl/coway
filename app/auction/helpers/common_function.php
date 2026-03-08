@@ -1,9 +1,6 @@
 <?php
 declare(strict_types=1);
 
-/**
- * 디버깅용 출력
- */
 function print_m(mixed $data, bool $console = false): void
 {
     if ($console) {
@@ -13,9 +10,6 @@ function print_m(mixed $data, bool $console = false): void
     }
 }
 
-/**
- * JS alert 후 뒤로가기
- */
 function alert(string $msg, string $url = ''): void
 {
     $redirect = $url ? "location.href='{$url}';" : 'history.back();';
@@ -23,13 +17,10 @@ function alert(string $msg, string $url = ''): void
     exit;
 }
 
-/**
- * 로그인 체크
- */
 function login_check(bool $return = false): bool|array
 {
-    if (!empty($_SESSION['member'])) {
-        return $return ? $_SESSION['member'] : true;
+    if (!empty($_SESSION['auction_member'])) {
+        return $return ? $_SESSION['auction_member'] : true;
     }
 
     if (!$return) {
