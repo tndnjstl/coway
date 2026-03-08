@@ -26,6 +26,15 @@
 				<div class="container-fluid">
 					<ul class="navbar-nav topbar-nav ms-md-auto align-items-center gap-2">
 						<?php if (isset($_SESSION['is_login']) && $_SESSION['is_login']): ?>
+						<!-- 위치 추적 상태 아이콘 -->
+						<li class="nav-item">
+							<a href="/Location/myRoute" id="nav-tracking-btn"
+							   class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+							   title="내 동선 확인">
+								<span id="nav-tracking-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ccc;vertical-align:middle;"></span>
+								<i class="fas fa-map-marker-alt"></i>
+							</a>
+						</li>
 						<li class="nav-item d-flex align-items-center gap-2">
 							<span class="small text-muted">
 								<b><?= htmlspecialchars($_SESSION['info']['member_name'] ?? $_SESSION['member_id'] ?? '') ?></b>님
@@ -40,3 +49,26 @@
 			</nav>
 			<!-- End Navbar -->
 		</div>
+
+<?php if (isset($_SESSION['is_login']) && $_SESSION['is_login']): ?>
+<script>
+// 페이지 로드 시 위치 추적 상태 확인 (비동기, 조용히)
+$(function () {
+	$.get('/Location/trackingStatus', function (res) {
+		if (res && res.tracking) {
+			var dot = document.getElementById('nav-tracking-dot');
+			if (dot) {
+				dot.style.background = '#28a745';
+				dot.style.animation  = 'navDotPulse 1.5s infinite';
+			}
+		}
+	}, 'json').fail(function () { /* 조용히 실패 */ });
+});
+</script>
+<style>
+@keyframes navDotPulse {
+	0%,100% { opacity:1; transform:scale(1); }
+	50%      { opacity:.6; transform:scale(1.3); }
+}
+</style>
+<?php endif; ?>

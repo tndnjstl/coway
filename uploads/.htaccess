@@ -1,0 +1,5 @@
+# 직접 PHP 실행 차단 (음성 파일은 downloadAudio 통해서만 접근)
+<FilesMatch "\.(php|php3|php4|php5|phtml)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>

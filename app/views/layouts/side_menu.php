@@ -76,6 +76,32 @@
 							</a>
 						</li>
 
+						<!-- 상담관리 -->
+						<li class="nav-section">
+							<span class="sidebar-mini-icon"><i class="fa fa-ellipsis-h"></i></span>
+							<h4 class="text-section">상담관리</h4>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Consultation/form') !== false) ? 'active' : '' ?>">
+							<a href="/Consultation/form">
+								<i class="fas fa-microphone"></i>
+								<p>상담 녹음</p>
+							</a>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Consultation/list') !== false) ? 'active' : '' ?>">
+							<a href="/Consultation/list">
+								<i class="fas fa-comments"></i>
+								<p>상담 내역</p>
+							</a>
+						</li>
+
+						<!-- 내 동선 확인 -->
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Location/myRoute') !== false) ? 'active' : '' ?>">
+							<a href="/Location/myRoute">
+								<i class="fas fa-map-marked-alt"></i>
+								<p>내 동선 확인</p>
+							</a>
+						</li>
+
 						<!-- 보고서 -->
 						<li class="nav-section">
 							<span class="sidebar-mini-icon"><i class="fa fa-ellipsis-h"></i></span>
@@ -116,6 +142,12 @@
 							<a href="/Promotion/index">
 								<i class="fas fa-tags"></i>
 								<p>프로모션 관리</p>
+							</a>
+						</li>
+						<li class="nav-item <?= (strpos($_SERVER['REQUEST_URI'], '/Location/dashboard') !== false) ? 'active' : '' ?>">
+							<a href="/Location/dashboard">
+								<i class="fas fa-route"></i>
+								<p>동선 관리</p>
 							</a>
 						</li>
 						<?php endif; ?>
